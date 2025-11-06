@@ -1,87 +1,35 @@
 /*
-Task:
-    Read as5600 sensor:
-        - Initialize I2C
-        - Read angle data from AS5600
-        - Read rpm data from AS5600
-        - publish data to micro-ROS topic
-    
-    Control arm_motor:
-        - Motor Driver: L298N
-        - Control motor speed and direction based on error from joint_trajectory_controller type controller's  arm_controller/state topic
-        - Subscribe to micro-ROS topic for arm_controller/state messages
+ESP32 micro-ROS + AS5600 + L298N + N20 encoder example
 
-    Control drive motors:
-        - Motor Driver: L298N
-        - Motor: N20 DC Motor with Encoder
-        - Control motor speed and direction based on Twist messages from micro-ROS topic
-        - Subscribe to micro-ROS topic for vaccume_base_controller/cmd_vel messages 
-        - Using diif_drive_controller type controller
+This file was updated to use the espp As5600 API properly (espp::I2c + espp::As5600)
+as shown in your reference example. The As5600 instance runs its own internal
+update task (as provided by the espp library) and exposes convenient getters
+like get_degrees(), get_rpm(), get_count(), get_radians().
 
-    
-        as5600.hpp is a espp library. Details at: https://components.espressif.com/components/espp/as5600/versions/1.0.30/readme?language=en
-
-
-*/
-/*
-
-Features implemented (best-effort):
- - I2C init (ESP-IDF)
- - AS5600 read (using espp/as5600 component library)
- - Angle (degrees) and RPM estimate published to micro-ROS topics:
-     /arm/angle  (std_msgs/msg/Float32)
-     /arm/rpm    (std_msgs/msg/Float32)
- - Subscribes to /arm_controller/state (expects std_msgs/msg/Float32MultiArray)
-     - Uses first element as desired joint position (radians or degrees depending on your convention)
-     - Computes error = desired - measured and runs a simple PID to control the arm motor via L298N
- - Subscribes to /vaccum_base_controller/cmd_vel (geometry_msgs/msg/Twist)
-     - Converts linear.x and angular.z into left and right wheel target velocities for differential drive
-     - Controls two DC drive motors via L298N using LEDC PWM + direction pins
- - Encoder ISR counters for wheel encoders (N20). Velocity estimation provided by a periodic task.
-
-NOTES and ADAPTATION:
- - This is a reference implementation. You will very likely need to adapt pins, message types, and micro-ROS init to your project.
- - I used std_msgs/msg/Float32 and std_msgs/msg/Float32MultiArray to keep dependencies small. If you use control_msgs/msg/JointTrajectoryControllerState, change the subscriber type and callback accordingly.
- - Adjust PID gains, wheel parameters, timers, and LEDC channel configs for your hardware.
- - Make sure you have micro-ROS and rclc installed for ESP-IDF and that your project's component CMakeLists.txt links against the necessary libraries.
-
-PIN ASSIGNMENTS (example) - change to your wiring:
- - I2C SDA: GPIO21
- - I2C SCL: GPIO22
- - ARM L298N IN1 (dir A): GPIO16
- - ARM L298N IN2 (dir B): GPIO17
- - ARM L298N ENA (PWM): LEDC channel 0 -> GPIO18
- - LEFT DRIVE IN1: GPIO25
- - LEFT DRIVE IN2: GPIO26
- - LEFT DRIVE ENA PWM: LEDC channel 1 -> GPIO27
- - RIGHT DRIVE IN1: GPIO32
- - RIGHT DRIVE IN2: GPIO33
- - RIGHT DRIVE ENA PWM: LEDC channel 2 -> GPIO14
- - ENCODER LEFT A: GPIO34 (input)
- - ENCODER LEFT B: GPIO35 (input)
- - ENCODER RIGHT A: GPIO36 (input)
- - ENCODER RIGHT B: GPIO39 (input)
-
-Compile-time configuration and further integration notes are inside comments in the file.
+Adjust pins, encoder CPR, PID gains, and micro-ROS transport settings for your
+hardware and project setup.
 */
 
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include <inttypes.h>
+#include <chrono>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "esp_log.h"
-#include "driver/i2c.h"
 #include "driver/ledc.h"
 #include "driver/gpio.h"
 
 #include "sdkconfig.h"
 
-// as5600.hpp from espp
+// espp includes for AS5600
 #include "as5600.hpp"
+#include "i2c.hpp"
+#include "butterworth_filter.hpp"
+#include "task.hpp"
 
 // micro-ROS / rclc includes
 #include <rcl/rcl.h>
@@ -94,15 +42,14 @@ Compile-time configuration and further integration notes are inside comments in 
 
 static const char *TAG = "arm_drive_node";
 
+using namespace std::chrono_literals;
+
 // ========= User configuration (adjust to your board) =========
-#define I2C_MASTER_SCL_IO 22
-#define I2C_MASTER_SDA_IO 21
-#define I2C_MASTER_NUM I2C_NUM_0
-#define I2C_MASTER_FREQ_HZ 400000
+#define I2C_MASTER_NUM I2C_NUM_1
+#define I2C_MASTER_SDA_GPIO GPIO_NUM_21
+#define I2C_MASTER_SCL_GPIO GPIO_NUM_22
 
-// AS5600 I2C address default in espp library will be used
-
-// LEDC PWM channels & pins for motors
+// LEDC PWM channels & pins for motors (example)
 #define ARM_PWM_GPIO 18
 #define ARM_DIR_A_GPIO 16
 #define ARM_DIR_B_GPIO 17
@@ -118,7 +65,7 @@ static const char *TAG = "arm_drive_node";
 #define RIGHT_DIR_B_GPIO 33
 #define RIGHT_LEDC_CHANNEL LEDC_CHANNEL_2
 
-// Encoder pins (example) - using GPIO inputs with interrupts
+// Encoder pins (example)
 #define ENC_LEFT_A_GPIO 34
 #define ENC_LEFT_B_GPIO 35
 #define ENC_RIGHT_A_GPIO 36
@@ -140,7 +87,8 @@ static const char *TAG = "arm_drive_node";
 #define ARM_MAX_PWM 255
 
 // ============ Global state ============
-static as5600::AS5600 as5600_sensor; // object from espp as5600.hpp
+static espp::As5600 *g_as5600 = nullptr;
+static espp::I2c *g_i2c = nullptr; // must outlive g_as5600
 
 static SemaphoreHandle_t i2c_mutex;
 
@@ -161,7 +109,7 @@ static float target_left_vel = 0.0f;
 static float target_right_vel = 0.0f;
 static SemaphoreHandle_t vel_mutex;
 
-// Arm controller target position (units same as AS5600 output - degrees by default)
+// Arm controller target position (degrees)
 static float arm_target_pos = 0.0f;
 static SemaphoreHandle_t arm_target_mutex;
 
@@ -170,7 +118,7 @@ volatile int64_t enc_left_count = 0;
 volatile int64_t enc_right_count = 0;
 SemaphoreHandle_t enc_mutex;
 
-// Helper for wrap-aware angle delta
+// ========= Helper =========
 static float angle_wrap_delta(float new_deg, float old_deg){
     float d = new_deg - old_deg;
     if (d > 180.0f) d -= 360.0f;
@@ -178,34 +126,16 @@ static float angle_wrap_delta(float new_deg, float old_deg){
     return d;
 }
 
-// ========= I2C init =========
-static esp_err_t i2c_master_init(void)
-{
-    i2c_config_t conf{};
-    conf.mode = I2C_MODE_MASTER;
-    conf.sda_io_num = (gpio_num_t)I2C_MASTER_SDA_IO;
-    conf.scl_io_num = (gpio_num_t)I2C_MASTER_SCL_IO;
-    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.master.clk_speed = I2C_MASTER_FREQ_HZ;
-    esp_err_t err = i2c_param_config(I2C_MASTER_NUM, &conf);
-    if (err != ESP_OK) return err;
-    return i2c_driver_install(I2C_MASTER_NUM, conf.mode, 0, 0, 0);
-}
-
 // ========= PWM / GPIO init =========
 static void motors_init(void)
 {
     // Configure direction GPIOs
-    gpio_config_t io_conf{};
-    io_conf.intr_type = GPIO_INTR_DISABLE;
-    io_conf.mode = GPIO_MODE_OUTPUT;
-    io_conf.pin_bit_mask = (1ULL<<ARM_DIR_A_GPIO) | (1ULL<<ARM_DIR_B_GPIO)
-                          | (1ULL<<LEFT_DIR_A_GPIO) | (1ULL<<LEFT_DIR_B_GPIO)
-                          | (1ULL<<RIGHT_DIR_A_GPIO) | (1ULL<<RIGHT_DIR_B_GPIO);
-    io_conf.pull_down_en = 0;
-    io_conf.pull_up_en = 0;
-    gpio_config(&io_conf);
+    gpio_set_direction((gpio_num_t)ARM_DIR_A_GPIO, GPIO_MODE_OUTPUT);
+    gpio_set_direction((gpio_num_t)ARM_DIR_B_GPIO, GPIO_MODE_OUTPUT);
+    gpio_set_direction((gpio_num_t)LEFT_DIR_A_GPIO, GPIO_MODE_OUTPUT);
+    gpio_set_direction((gpio_num_t)LEFT_DIR_B_GPIO, GPIO_MODE_OUTPUT);
+    gpio_set_direction((gpio_num_t)RIGHT_DIR_A_GPIO, GPIO_MODE_OUTPUT);
+    gpio_set_direction((gpio_num_t)RIGHT_DIR_B_GPIO, GPIO_MODE_OUTPUT);
 
     // Configure LEDC PWM timers and channels
     ledc_timer_config_t ledc_timer{};
@@ -238,7 +168,6 @@ static void motors_init(void)
     ledc_channel_config(&ledc_channel);
 }
 
-// Write direction + pwm convenience
 static void set_motor_pwm(uint8_t ledc_channel, int gpio_dir_a, int gpio_dir_b, float pwm_frac)
 {
     // pwm_frac in range -1..1
@@ -272,9 +201,7 @@ static void IRAM_ATTR enc_left_isr_handler(void *arg)
         lastA = A;
     }
     if (delta != 0) {
-        portENTER_CRITICAL_ISR(&((portMUX_TYPE){0}));
-        enc_left_count += delta;
-        portEXIT_CRITICAL_ISR(&((portMUX_TYPE){0}));
+        __atomic_add_fetch(&enc_left_count, delta, __ATOMIC_RELAXED);
     }
 }
 
@@ -290,9 +217,7 @@ static void IRAM_ATTR enc_right_isr_handler(void *arg)
         lastA = A;
     }
     if (delta != 0) {
-        portENTER_CRITICAL_ISR(&((portMUX_TYPE){0}));
-        enc_right_count += delta;
-        portEXIT_CRITICAL_ISR(&((portMUX_TYPE){0}));
+        __atomic_add_fetch(&enc_right_count, delta, __ATOMIC_RELAXED);
     }
 }
 
@@ -314,15 +239,12 @@ static void encoders_init(void)
 }
 
 // ========= micro-ROS callbacks =========
-
-// cmd_vel callback
 static void cmd_vel_callback(const void *msgin)
 {
     const geometry_msgs__msg__Twist *tw = (const geometry_msgs__msg__Twist *)msgin;
     float linear = (float)tw->linear.x; // m/s
     float angular = (float)tw->angular.z; // rad/s
 
-    // Convert to left/right wheel speeds (approx)
     float v_left = linear - (angular * WHEEL_SEPARATION * 0.5f);
     float v_right = linear + (angular * WHEEL_SEPARATION * 0.5f);
 
@@ -333,7 +255,6 @@ static void cmd_vel_callback(const void *msgin)
     }
 }
 
-// arm_state callback (we assume Float32MultiArray: first element = desired pos)
 static void arm_state_callback(const void *msgin)
 {
     const std_msgs__msg__Float32MultiArray *arr = (const std_msgs__msg__Float32MultiArray *)msgin;
@@ -347,38 +268,28 @@ static void arm_state_callback(const void *msgin)
 }
 
 // ========= Tasks =========
-
-// Sensor task: read AS5600, compute rpm, publish
+// Sensor task: read As5600 using espp API, publish degrees and rpm
 static void sensor_task(void *arg)
 {
     (void)arg;
-    float last_angle_deg = 0.0f;
+    float last_degrees = 0.0f;
     TickType_t last_wake = xTaskGetTickCount();
 
     while (1) {
-        // Read angle from AS5600
-        float angle_deg = 0.0f;
-        {
-            xSemaphoreTake(i2c_mutex, portMAX_DELAY);
-            // as5600::AS5600 read example from espp: get_angle() returns degrees 0..360
-            angle_deg = as5600_sensor.get_angle();
-            xSemaphoreGive(i2c_mutex);
+        if (!g_as5600) {
+            vTaskDelay(pdMS_TO_TICKS(SENSOR_PUBLISH_PERIOD_MS));
+            continue;
         }
 
-        // Compute delta angle and rpm (approx)
-        float d = angle_wrap_delta(angle_deg, last_angle_deg);
-        last_angle_deg = angle_deg;
+        // as5600 runs its own update; just read the cached values
+        float degrees = g_as5600->get_degrees();
+        float rpm = g_as5600->get_rpm();
 
-        // d degrees per period (SENSOR_PUBLISH_PERIOD_MS)
-        float period_s = (float)SENSOR_PUBLISH_PERIOD_MS / 1000.0f;
-        float rpm = 0.0f;
-        // degrees per second = d / period_s
-        float deg_per_sec = d / period_s;
-        float rev_per_sec = deg_per_sec / 360.0f;
-        rpm = rev_per_sec * 60.0f;
+        // Optionally compute delta yourself if needed
+        float d = angle_wrap_delta(degrees, last_degrees);
+        last_degrees = degrees;
 
-        // Publish angle and rpm
-        angle_msg.data = angle_deg;
+        angle_msg.data = degrees;
         rpm_msg.data = rpm;
 
         rcl_ret_t ret;
@@ -395,12 +306,11 @@ static void sensor_task(void *arg)
     }
 }
 
-// Drive control task: convert target velocities to pwm and set motor outputs
+// Drive control task
 static void drive_control_task(void *arg)
 {
     (void)arg;
     TickType_t last_wake = xTaskGetTickCount();
-
     const float max_linear_speed = 1.0f; // m/s (tune)
 
     while (1) {
@@ -412,7 +322,6 @@ static void drive_control_task(void *arg)
             xSemaphoreGive(vel_mutex);
         }
 
-        // Normalize to pwm fraction - simple proportional mapping
         float left_frac = left_v / max_linear_speed;
         float right_frac = right_v / max_linear_speed;
         if (left_frac > 1.0f) left_frac = 1.0f;
@@ -427,21 +336,21 @@ static void drive_control_task(void *arg)
     }
 }
 
-// Arm control task: simple PID using AS5600 measured angle
+// Arm control task: simple PID using As5600 measured degrees
 static void arm_control_task(void *arg)
 {
     (void)arg;
-    float last_angle = 0.0f;
     float integral = 0.0f;
     float last_error = 0.0f;
     TickType_t last_wake = xTaskGetTickCount();
 
     while (1) {
-        // read measured angle
-        float meas = 0.0f;
-        xSemaphoreTake(i2c_mutex, portMAX_DELAY);
-        meas = as5600_sensor.get_angle();
-        xSemaphoreGive(i2c_mutex);
+        if (!g_as5600) {
+            vTaskDelay(pdMS_TO_TICKS(CONTROL_PERIOD_MS));
+            continue;
+        }
+
+        float meas = g_as5600->get_degrees();
 
         float desired = 0.0f;
         if (xSemaphoreTake(arm_target_mutex, (TickType_t)10) == pdTRUE) {
@@ -449,13 +358,12 @@ static void arm_control_task(void *arg)
             xSemaphoreGive(arm_target_mutex);
         }
 
-        float error = angle_wrap_delta(desired, meas); // desired - meas with wrap handling
+        float error = angle_wrap_delta(desired, meas);
         integral += error * (CONTROL_PERIOD_MS / 1000.0f);
         float derivative = (error - last_error) / (CONTROL_PERIOD_MS / 1000.0f);
         float out = ARM_KP * error + ARM_KI * integral + ARM_KD * derivative;
         last_error = error;
 
-        // Map out to pwm fraction
         float pwm_frac = out / (float)ARM_MAX_PWM;
         if (pwm_frac > 1.0f) pwm_frac = 1.0f;
         if (pwm_frac < -1.0f) pwm_frac = -1.0f;
@@ -474,9 +382,8 @@ static void encoder_sample_task(void *arg)
     TickType_t last_wake = xTaskGetTickCount();
 
     while (1) {
-        int64_t left, right;
-        left = enc_left_count;
-        right = enc_right_count;
+        int64_t left = __atomic_load_n(&enc_left_count, __ATOMIC_RELAXED);
+        int64_t right = __atomic_load_n(&enc_right_count, __ATOMIC_RELAXED);
 
         int64_t dl = left - last_left;
         int64_t dr = right - last_right;
@@ -484,8 +391,7 @@ static void encoder_sample_task(void *arg)
         last_right = right;
 
         float dt = (float)ENCODER_SAMPLE_MS / 1000.0f;
-        // ticks to meters: you must know ticks per revolution
-        const float TICKS_PER_REV = 48.0f; // placeholder, set to your encoder CPR
+        const float TICKS_PER_REV = 48.0f; // placeholder, set correct value
         float left_rps = (dl / TICKS_PER_REV) / dt;
         float right_rps = (dr / TICKS_PER_REV) / dt;
         float left_mps = left_rps * (2.0f * M_PI * WHEEL_RADIUS);
@@ -506,8 +412,6 @@ static void micro_ros_init_and_create_comm(void)
     rclc_support_t support;
     rcl_init_options_t init_options = rcl_get_zero_initialized_init_options();
     rcl_init_options_init(&init_options, allocator);
-
-    // NOTE: user must set up rmw configuration (transport) separately according to micro-ROS esp-idf guide
 
     rcl_ret_t rc = rclc_support_init(&support, 0, NULL, &allocator);
     if (rc != RCL_RET_OK) {
@@ -531,7 +435,6 @@ static void micro_ros_init_and_create_comm(void)
     rc = rcl_subscription_init(&cmd_vel_sub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist), "/vaccum_base_controller/cmd_vel", &sub_ops);
     if (rc != RCL_RET_OK) ESP_LOGE(TAG, "cmd_vel sub init failed: %d", rc);
 
-    // We subscribe to arm_controller/state as Float32MultiArray for simplicity
     rc = rcl_subscription_init(&arm_state_sub, &node, ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray), "/arm_controller/state", &sub_ops);
     if (rc != RCL_RET_OK) ESP_LOGE(TAG, "arm state sub init failed: %d", rc);
 
@@ -557,7 +460,7 @@ static void micro_ros_spin_task(void *arg)
 // ========= app_main =========
 extern "C" void app_main(void)
 {
-    ESP_LOGI(TAG, "Starting esp32 ARM+DRIVE node");
+    ESP_LOGI(TAG, "Starting esp32 ARM+DRIVE node (As5600 updated)");
 
     // init mutexes
     i2c_mutex = xSemaphoreCreateMutex();
@@ -565,15 +468,28 @@ extern "C" void app_main(void)
     arm_target_mutex = xSemaphoreCreateMutex();
     enc_mutex = xSemaphoreCreateMutex();
 
-    // init i2c
-    esp_err_t err = i2c_master_init();
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "I2C init failed: %d", err);
-    }
+    // initialize espp I2C (must match CONFIG_EXAMPLE_* macros in sdkconfig)
+    g_i2c = new espp::I2c({
+        .port = I2C_MASTER_NUM,
+        .sda_io_num = (gpio_num_t)I2C_MASTER_SDA_GPIO,
+        .scl_io_num = (gpio_num_t)I2C_MASTER_SCL_GPIO,
+    });
 
-    // init as5600 object (the constructor in espp may require i2c number and address)
-    // Example assuming as5600::AS5600::AS5600(i2c_num)
-    as5600_sensor = as5600::AS5600(I2C_MASTER_NUM);
+    // make the velocity filter for As5600
+    static constexpr float filter_cutoff_hz = 4.0f;
+    static constexpr float encoder_update_period = 0.01f; // seconds
+    static espp::ButterworthFilter<2, espp::BiquadFilterDf2> filter({
+        .normalized_cutoff_frequency = 2.0f * filter_cutoff_hz * encoder_update_period});
+    auto filter_fn = [&filter](float raw) -> float { return filter.update(raw); };
+
+    // create the As5600 instance (it creates its own task internally)
+    g_as5600 = new espp::As5600({
+        .write_then_read = std::bind(&espp::I2c::write_read, g_i2c,
+                                     std::placeholders::_1, std::placeholders::_2,
+                                     std::placeholders::_3, std::placeholders::_4, std::placeholders::_5),
+        .velocity_filter = filter_fn,
+        .update_period = std::chrono::duration<float>(encoder_update_period),
+        .log_level = espp::Logger::Verbosity::WARN});
 
     // init motors & pwm
     motors_init();
