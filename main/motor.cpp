@@ -10,61 +10,66 @@ float angle_wrap_delta(float new_deg, float old_deg){
 }
 
 // ========= PWM / GPIO init =========
-void motors_init(void)
-{
-    // Configure direction GPIOs
-    gpio_set_direction((gpio_num_t)ARM_DIR_A_GPIO, GPIO_MODE_OUTPUT);
-    gpio_set_direction((gpio_num_t)ARM_DIR_B_GPIO, GPIO_MODE_OUTPUT);
-    gpio_set_direction((gpio_num_t)LEFT_DIR_A_GPIO, GPIO_MODE_OUTPUT);
-    gpio_set_direction((gpio_num_t)LEFT_DIR_B_GPIO, GPIO_MODE_OUTPUT);
-    gpio_set_direction((gpio_num_t)RIGHT_DIR_A_GPIO, GPIO_MODE_OUTPUT);
-    gpio_set_direction((gpio_num_t)RIGHT_DIR_B_GPIO, GPIO_MODE_OUTPUT);
-
+void motors_init(){
+   
+   
     // Configure LEDC PWM timers and channels
-    ledc_timer_config_t ledc_timer{};
-    ledc_timer.speed_mode = LEDC_HIGH_SPEED_MODE;
-    ledc_timer.timer_num = LEDC_TIMER_0;
-    ledc_timer.duty_resolution = LEDC_TIMER_8_BIT; // 8-bit resolution
-    ledc_timer.freq_hz = 20000; // 20 kHz
-    ledc_timer.clk_cfg = LEDC_AUTO_CLK;
+    ledc_timer_config_t ledc_timer = {
+        .speed_mode = LEDC_HIGH_SPEED_MODE,
+        .duty_resolution = LEDC_TIMER_13_BIT, // 13-bit resolution
+        .timer_num = LEDC_TIMER_0,
+        .freq_hz = 5000, // 5 kHz
+        .clk_cfg = LEDC_AUTO_CLK,
+    };
     ledc_timer_config(&ledc_timer);
 
-    // Channel for arm
-    ledc_channel_config_t ledc_channel{};
-    ledc_channel.speed_mode = LEDC_HIGH_SPEED_MODE;
-    ledc_channel.channel = ARM_LEDC_CHANNEL;
-    ledc_channel.timer_sel = LEDC_TIMER_0;
-    ledc_channel.intr_type = LEDC_INTR_DISABLE;
-    ledc_channel.gpio_num = ARM_PWM_GPIO;
-    ledc_channel.duty = 0;
-    ledc_channel.hpoint = 0;
+    // Channel for left arm
+    ledc_channel_config_t ledc_channel = {
+        .gpio_num = LEFT_ARM_PWM_GPIO,
+        .speed_mode = LEDC_HIGH_SPEED_MODE,
+        .channel = LEFT_ARM_LEDC_CHANNEL,
+        .intr_type = LEDC_INTR_DISABLE,
+        .timer_sel = LEDC_TIMER_0,
+        .duty = 0,
+        .hpoint = 0,
+    };
+    ledc_channel_config(&ledc_channel);
+    
+    // Channel for right arm
+    ledc_channel.channel = RIGHT_ARM_LEDC_CHANNEL;
+    ledc_channel.gpio_num = RIGHT_ARM_PWM_GPIO;
     ledc_channel_config(&ledc_channel);
 
-    // Left
-    ledc_channel.channel = LEFT_LEDC_CHANNEL;
-    ledc_channel.gpio_num = LEFT_PWM_GPIO;
+
+    // Left Base Body 1
+    ledc_channel.channel = BASE_LEFT_LEDC_CHANNEL_1;
+    ledc_channel.gpio_num = BASE_LEFT_PWM_GPIO_1;
     ledc_channel_config(&ledc_channel);
 
-    // Right
-    ledc_channel.channel = RIGHT_LEDC_CHANNEL;
-    ledc_channel.gpio_num = RIGHT_PWM_GPIO;
+    // Right Base Body 1
+    ledc_channel.channel = BASE_RIGHT_LEDC_CHANNEL_1;
+    ledc_channel.gpio_num = BASE_RIGHT_PWM_GPIO_1;
+    ledc_channel_config(&ledc_channel);
+
+    // Left Base Body 2
+    ledc_channel.channel = BASE_LEFT_LEDC_CHANNEL_2;
+    ledc_channel.gpio_num = BASE_LEFT_PWM_GPIO_2;
+    ledc_channel_config(&ledc_channel);
+
+    // Right Base Body 2
+    ledc_channel.channel = BASE_RIGHT_LEDC_CHANNEL_2;
+    ledc_channel.gpio_num = BASE_RIGHT_PWM_GPIO_2;
     ledc_channel_config(&ledc_channel);
 }
 
-void set_motor_pwm(uint8_t ledc_channel, int gpio_dir_a, int gpio_dir_b, float pwm_frac)
+void set_motor_pwm(uint8_t ledc_channel, float pwm_frac)
 {
     // pwm_frac in range -1..1
     if (pwm_frac > 1.0f) pwm_frac = 1.0f;
     if (pwm_frac < -1.0f) pwm_frac = -1.0f;
-
+    //publish the raspberry pi direction control pin msg
     int duty = (int)(fabsf(pwm_frac) * 255.0f);
-    if (pwm_frac >= 0.0f) {
-        gpio_set_level((gpio_num_t)gpio_dir_a, 1);
-        gpio_set_level((gpio_num_t)gpio_dir_b, 0);
-    } else {
-        gpio_set_level((gpio_num_t)gpio_dir_a, 0);
-        gpio_set_level((gpio_num_t)gpio_dir_b, 1);
-    }
+
     ledc_set_duty(LEDC_HIGH_SPEED_MODE, (ledc_channel_t)ledc_channel, duty);
     ledc_update_duty(LEDC_HIGH_SPEED_MODE, (ledc_channel_t)ledc_channel);
 }
@@ -86,7 +91,7 @@ void drive_control_task(void *arg)
             right_v = target_right_vel;
             xSemaphoreGive(vel_mutex);
         }
-
+        //apply PID control to matchc the target velocities
         float left_frac = left_v / max_linear_speed;
         float right_frac = right_v / max_linear_speed;
         if (left_frac > 1.0f) left_frac = 1.0f;
@@ -94,8 +99,16 @@ void drive_control_task(void *arg)
         if (right_frac > 1.0f) right_frac = 1.0f;
         if (right_frac < -1.0f) right_frac = -1.0f;
 
-        set_motor_pwm(LEFT_LEDC_CHANNEL, LEFT_DIR_A_GPIO, LEFT_DIR_B_GPIO, left_frac);
-        set_motor_pwm(RIGHT_LEDC_CHANNEL, RIGHT_DIR_A_GPIO, RIGHT_DIR_B_GPIO, right_frac);
+
+        // float left_frac = left_v / max_linear_speed;
+        // float right_frac = right_v / max_linear_speed;
+        // if (left_frac > 1.0f) left_frac = 1.0f;
+        // if (left_frac < -1.0f) left_frac = -1.0f;
+        // if (right_frac > 1.0f) right_frac = 1.0f;
+        // if (right_frac < -1.0f) right_frac = -1.0f;
+
+        set_motor_pwm(left_channel,  left_frac);
+        set_motor_pwm(right_channel,  right_frac);
 
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(CONTROL_PERIOD_MS));
     }
@@ -133,7 +146,7 @@ void arm_control_task(void *arg)
         if (pwm_frac > 1.0f) pwm_frac = 1.0f;
         if (pwm_frac < -1.0f) pwm_frac = -1.0f;
 
-        set_motor_pwm(ARM_LEDC_CHANNEL, ARM_DIR_A_GPIO, ARM_DIR_B_GPIO, pwm_frac);
+        set_motor_pwm(arm_channel, arm_dir_a, arm_dir_b, pwm_frac);
 
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(CONTROL_PERIOD_MS));
     }

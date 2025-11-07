@@ -1,19 +1,23 @@
 #pragma once
 // LEDC PWM channels & pins for motors (example)
-#define ARM_PWM_GPIO 18
-#define ARM_DIR_A_GPIO 16
-#define ARM_DIR_B_GPIO 17
-#define ARM_LEDC_CHANNEL LEDC_CHANNEL_0
+#define LEFT_ARM_PWM_GPIO 26
+#define LEFT_ARM_LEDC_CHANNEL LEDC_CHANNEL_0
 
-#define LEFT_PWM_GPIO 27
-#define LEFT_DIR_A_GPIO 25
-#define LEFT_DIR_B_GPIO 26
-#define LEFT_LEDC_CHANNEL LEDC_CHANNEL_1
+#define RIGHT_ARM_PWM_GPIO 27
+#define RIGHT_ARM_LEDC_CHANNEL LEDC_CHANNEL_1
 
-#define RIGHT_PWM_GPIO 14
-#define RIGHT_DIR_A_GPIO 32
-#define RIGHT_DIR_B_GPIO 33
-#define RIGHT_LEDC_CHANNEL LEDC_CHANNEL_2
+#define BASE_LEFT_PWM_GPIO_1 32
+#define BASE_LEFT_LEDC_CHANNEL_1 LEDC_CHANNEL_2
+
+
+#define BASE_RIGHT_PWM_GPIO_1 23
+#define BASE_RIGHT_LEDC_CHANNEL_1 LEDC_CHANNEL_3
+
+#define BASE_LEFT_PWM_GPIO_2 33
+#define BASE_LEFT_LEDC_CHANNEL_2 LEDC_CHANNEL_4
+
+#define BASE_RIGHT_PWM_GPIO_2 25
+#define BASE_RIGHT_LEDC_CHANNEL_2 LEDC_CHANNEL_5
 
 
 // Drive target velocities (m/s)
@@ -26,8 +30,8 @@ extern float arm_target_pos;
 extern SemaphoreHandle_t arm_state_mutex;
 
 
-void motors_init(void);
-void set_motor_pwm(uint8_t ledc_channel, int gpio_dir_a, int gpio_dir_b, float pwm_frac);
+void motors_init();
+void set_motor_pwm(uint8_t ledc_channel, float pwm_frac);
 void drive_control_task(void *arg);
 void arm_control_task(void *arg);
 float angle_wrap_delta(float new_deg, float old_deg);

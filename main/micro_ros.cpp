@@ -12,7 +12,9 @@ void cmd_vel_callback(const void *msgin)
 
     float v_left = linear - (angular * WHEEL_SEPARATION * 0.5f);
     float v_right = linear + (angular * WHEEL_SEPARATION * 0.5f);
+    if(v_left > 0){
 
+    }
     if (xSemaphoreTake(vel_mutex, (TickType_t)10) == pdTRUE) {
         target_left_vel = v_left;
         target_right_vel = v_right;
@@ -72,6 +74,17 @@ void micro_ros_init_and_create_comm(void)
         &pub_ops)
     );
 
+    RCCHECK(rclc_subscription_init_default(
+            &encoder_counts_pub,
+            &node,
+            ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
+            "/encoder_counts")
+    );
+
+
+
+
+
     // subscribers
     RCCHECK(rclc_subscription_init_default(
             &cmd_vel_sub,
@@ -80,6 +93,8 @@ void micro_ros_init_and_create_comm(void)
             "/vaccum_base_controller/cmd_vel_unstamped")
     );
 
+        
+
     RCCHECK(
         rclc_subscription_init_default(
             &arm_state_sub,
@@ -87,6 +102,13 @@ void micro_ros_init_and_create_comm(void)
             ROSIDL_GET_MSG_TYPE_SUPPORT(control_msgs, msg, JointTrajectoryControllerState),
             "/arm_controller/state")
     );
+
+	
+	RCCHECK(rclc_timer_init_default(
+		&timer,
+		&support,
+		RCL_MS_TO_NS(100),
+		timer_callback));
 
 
 
