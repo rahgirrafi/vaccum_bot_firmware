@@ -118,9 +118,9 @@ void arm_control_task(void *arg)
         float meas = g_as5600->get_degrees();
 
         float desired = 0.0f;
-        if (xSemaphoreTake(arm_target_mutex, (TickType_t)10) == pdTRUE) {
+        if (xSemaphoreTake(arm_state_mutex, (TickType_t)10) == pdTRUE) {
             desired = arm_target_pos;
-            xSemaphoreGive(arm_target_mutex);
+            xSemaphoreGive(arm_state_mutex);
         }
 
         float error = angle_wrap_delta(desired, meas);

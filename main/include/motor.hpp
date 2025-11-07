@@ -23,7 +23,7 @@ extern SemaphoreHandle_t vel_mutex;
 
 // Arm controller target position (degrees)
 extern float arm_target_pos;
-extern SemaphoreHandle_t arm_target_mutex;
+extern SemaphoreHandle_t arm_state_mutex;
 
 
 void motors_init(void);

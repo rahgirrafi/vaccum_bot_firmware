@@ -18,7 +18,7 @@ extern "C" void app_main(void)
     // init mutexes
     i2c_mutex = xSemaphoreCreateMutex();
     vel_mutex = xSemaphoreCreateMutex();
-    arm_target_mutex = xSemaphoreCreateMutex();
+    arm_state_mutex = xSemaphoreCreateMutex();
     enc_mutex = xSemaphoreCreateMutex();
 
     // initialize espp I2C (must match CONFIG_EXAMPLE_* macros in sdkconfig)
