@@ -2,8 +2,16 @@
 #define MICRO_ROS_HPP
 // micro-ROS / rclc includes
 
-#define RCCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){printf("Failed status on line %d: %d. Aborting.\n",__LINE__,(int)temp_rc);vTaskDelete(NULL);}}
-#define RCSOFTCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){printf("Failed status on line %d: %d. Continuing.\n",__LINE__,(int)temp_rc);}}
+#define RCCHECK(fn) { \
+  rcl_ret_t temp_rc = (fn); \
+  if ((temp_rc) != RCL_RET_OK) { \
+    printf("RCCHECK FAILED %s:%d rc=%d -> %s\n", __FILE__, __LINE__, (int)temp_rc, rcl_get_error_string().str); \
+    fflush(stdout); \
+    vTaskDelete(NULL); \
+  } \
+}
+#define RCSOFTCHECK(fn) { rcl_ret_t temp_rc = (fn); if((temp_rc) != RCL_RET_OK){printf("RCSOFTCHECK %s:%d rc=%d -> %s\n", __FILE__, __LINE__, (int)temp_rc, rcl_get_error_string().str);}}
+
 
 #include <rcl/rcl.h>
 #include <rclc/rclc.h>
@@ -12,7 +20,7 @@
 #include <std_msgs/msg/float32.h>
 #include <std_msgs/msg/bool.h>
 #include <std_msgs/msg/int64_multi_array.h>
-#include <std_msgs/msg/float64_multi_array.h>
+#include <custom_interfaces/msg/float32_fixed_array.h>
 // #include <geometry_msgs/msg/twist.h>
 #include <geometry_msgs/msg/twist_stamped.h>
 #include <control_msgs/msg/joint_trajectory_controller_state.h>
@@ -53,8 +61,8 @@ extern std_msgs__msg__Bool right_wheel_2_dir_msg;
 extern std_msgs__msg__Bool left_arm_dir_msg;
 extern std_msgs__msg__Bool right_arm_dir_msg;
 
-extern std_msgs__msg__Int64MultiArray encoder_counts_msgs;
-extern std_msgs__msg__Float64MultiArray as5600_msgs;
+extern custom_interfaces__msg__Float32FixedArray encoder_counts_msgs;
+// extern custom_interfaces__msg__Float32FixedArray as5600_msgs;
 
 void micro_ros_init_and_create_comm(void);
 void micro_ros_spin_task(void *arg);

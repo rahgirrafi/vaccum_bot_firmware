@@ -60,30 +60,6 @@ std_msgs__msg__Bool right_wheel_1_dir_msg;
 std_msgs__msg__Bool left_wheel_2_dir_msg;
 std_msgs__msg__Bool right_wheel_2_dir_msg;
 
-std_msgs__msg__Bool left_arm_dir_msg;
-std_msgs__msg__Bool right_arm_dir_msg;
-
-std_msgs__msg__Int64MultiArray encoder_counts_msgs;
-std_msgs__msg__Float64MultiArray as5600_msgs;
+custom_interfaces__msg__Float32FixedArray encoder_counts_msgs;
+// custom_interfaces__msg__Float32FixedArray as5600_msgs;
 const char *TAG = "arm_drive_node";
-
-
-// 12 digital I/O signal subscribed from micro-ROS from raspberry pi
-
-int8_t left_arm_dir_a;
-int8_t left_arm_dir_b;
-
-int8_t right_arm_dir_a;
-int8_t right_arm_dir_b;
-
-int8_t left_base_dir_a_1;
-int8_t left_base_dir_b_1;
-
-int8_t right_base_dir_a_1;
-int8_t right_base_dir_b_1;
-
-int8_t left_base_dir_a_2;
-int8_t left_base_dir_b_2;
-
-int8_t right_base_dir_a_2;
-int8_t right_base_dir_b_2;

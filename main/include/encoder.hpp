@@ -30,8 +30,8 @@ extern float current_speed1;
 extern float current_speed2;
 extern float current_speed3;
 extern float current_speed4;
-extern std_msgs__msg__Int64MultiArray encoder_counts_msgs;
-extern std_msgs__msg__Float64MultiArray as5600_msgs;
+extern custom_interfaces__msg__Float32FixedArray encoder_counts_msgs;
+extern custom_interfaces__msg__Float32FixedArray as5600_msgs;
 
 extern SemaphoreHandle_t enc_mutex;
 

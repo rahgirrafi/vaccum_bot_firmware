@@ -19,9 +19,12 @@
 #include  "motor.hpp"
 #include "micro_ros.hpp"
 #include "encoder.hpp"
+#include "esp_event.h"
+#ifdef CONFIG_MICRO_ROS_ESP_XRCE_DDS_MIDDLEWARE
+#include <rmw_microros/rmw_microros.h>
+#endif
 
-
-
+#include <uros_network_interfaces.h>
 using namespace std::chrono_literals;
 extern const char *TAG ;
 
@@ -34,6 +37,6 @@ extern const char *TAG ;
 #define WHEEL_RADIUS 0.022f
 #define WHEEL_SEPARATION 0.10f
 
-
+void print_mem(const char *tag);
 
 #endif // VACUUM_FIRMWARE_HPP__

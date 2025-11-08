@@ -43,51 +43,53 @@ static void arm_state_callback(const void *msgin)
 
 void micro_ros_init_and_create_comm(void)
 {
-    rcl_allocator_t allocator = rcl_get_default_allocator();
-    rclc_support_t support;
-
     // initialize messages
     angle_msg.data = 0.0f;
     rpm_msg.data = 0.0f;
     
+    rcl_allocator_t allocator = rcl_get_default_allocator();
+    rclc_support_t support;
+    print_mem("before-getting-init-options");
+    rcl_init_options_t init_options = rcl_get_zero_initialized_init_options();
+    print_mem("after-getting-init-options");
+	rcl_init_options_init(&init_options, allocator);
+    print_mem("after-initing-init-options");
+    #ifdef CONFIG_MICRO_ROS_ESP_XRCE_DDS_MIDDLEWARE
+	rmw_init_options_t* rmw_options = rcl_init_options_get_rmw_init_options(&init_options);
 
-    
-    RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
+	// Static Agent IP and port can be used instead of autodisvery.
+	RCCHECK(rmw_uros_options_set_udp_address(CONFIG_MICRO_ROS_AGENT_IP, CONFIG_MICRO_ROS_AGENT_PORT, rmw_options));
+	//RCCHECK(rmw_uros_discover_agent(rmw_options));
+    #endif
+	// create init_options
+	RCCHECK(rclc_support_init_with_options(&support, 0, NULL, &init_options, &allocator));
+    print_mem("after-supporting-init-options");
     RCCHECK(rclc_node_init_default(&node, "vaccum_base_body_node", "", &support));
+    print_mem("after-supporting-init-options");
 
     
-
-    // publishers
-    rcl_publisher_options_t pub_ops = rcl_publisher_get_default_options();
-
     RCCHECK(rclc_publisher_init_default(
         &angle_pub, 
         &node, 
         ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), 
         "/arm/angle"));
-
+    print_mem("after-publisher-angle");
     RCCHECK(rclc_publisher_init_default(
         &rpm_pub, 
         &node, 
         ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), 
         "/arm/rpm"));
-
-    RCCHECK(rclc_publisher_init_default(
+print_mem("after-publisher-rpm");
+        rcl_publisher_t encoder_counts_pub;
+    rmw_qos_profile_t qos_profile = rmw_qos_profile_default;
+    qos_profile.depth = 1;
+    RCCHECK(rclc_publisher_init(
             &encoder_counts_pub,
             &node,
-            ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64MultiArray),
-            "/encoder_counts"));
-
-    // RCCHECK(rclc_publisher_init(
-    //         &as5600_sample_pub,
-    //         &node,
-    //         ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
-    //         "/as5600_counts",
-    //         &pub_ops));
-
-
-
-
+            ROSIDL_GET_MSG_TYPE_SUPPORT(custom_interfaces, msg, Float32FixedArray),
+            "/encoder_counts",
+            &qos_profile));
+print_mem("after-publisher-encoder");
 
     // subscribers
     RCCHECK(rclc_subscription_init_default(
@@ -96,9 +98,7 @@ void micro_ros_init_and_create_comm(void)
             ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, TwistStamped),
             "/vaccum_base_controller/cmd_vel_out")
     );
-
-        
-
+print_mem("after-sub-vel");
     RCCHECK(
         rclc_subscription_init_default(
             &arm_state_sub,
@@ -106,26 +106,13 @@ void micro_ros_init_and_create_comm(void)
             ROSIDL_GET_MSG_TYPE_SUPPORT(control_msgs, msg, JointTrajectoryControllerState),
             "/arm_controller/state")
     );
-
-	
-	// RCCHECK(rclc_timer_init_default(
-	// 	&timer,
-	// 	&support,
-	// 	RCL_MS_TO_NS(100),
-	// 	timer_callback));
-
-
+print_mem("after-sub-state");
 
     // executor two subscriptions and two publishers
     RCCHECK(rclc_executor_init(&executor, &support.context, 2, &allocator));
-    // RCCHECK(rclc_executor_add_timer(&executor, &timer));
     RCCHECK(rclc_executor_add_subscription(&executor, &cmd_vel_sub, &cmd_vel_msg, &cmd_vel_callback, ON_NEW_DATA));
     RCCHECK(rclc_executor_add_subscription(&executor, &arm_state_sub, &arm_state_msg, &arm_state_callback, ON_NEW_DATA));
-
-
 }
-
-
 
 void micro_ros_spin_task(void *arg)
 {
@@ -135,10 +122,3 @@ void micro_ros_spin_task(void *arg)
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
-// void timer_callback(rcl_timer_t * timer, int64_t last_call_time)
-// {
-// 	RCLC_UNUSED(last_call_time);
-// 	if (timer != NULL) {
-// 		rcl_publish(&encoder_counts_pub, &encoder_counts_msgs, NULL);
-// 	}
-// }

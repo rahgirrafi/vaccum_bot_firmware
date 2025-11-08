@@ -65,12 +65,7 @@ void encoders_init(void)
          .update_period = std::chrono::duration<float>(encoder_update_period),
          .log_level = espp::Logger::Verbosity::WARN});
 
-    int64_t encoder_data[4] = {0,0,0,0};
-    encoder_counts_msgs.data.data = encoder_data;
-    encoder_counts_msgs.data.size = 4;
-    encoder_counts_msgs.data.capacity = 4;
-    encoder_counts_msgs.layout.dim.size = 0;
-    encoder_counts_msgs.layout.dim.capacity = 0;
+    
 
     gpio_set_direction((gpio_num_t)ENC_LEFT_1_A_GPIO, GPIO_MODE_INPUT);
     gpio_set_direction((gpio_num_t)ENC_LEFT_1_B_GPIO, GPIO_MODE_INPUT);
@@ -139,10 +134,10 @@ void encoder_sample_task(void *arg)
         current_speed4 = right_mps2;
 
 
-        encoder_counts_msgs.data.data[0] = left_rps1;
-        encoder_counts_msgs.data.data[1] = right_rps1;
-        encoder_counts_msgs.data.data[2] = left_rps2;
-        encoder_counts_msgs.data.data[3] = right_rps2;
+        encoder_counts_msgs.element[0] = left_rps1;
+        encoder_counts_msgs.element[1] = right_rps1;
+        encoder_counts_msgs.element[2] = left_rps2;
+        encoder_counts_msgs.element[3] = right_rps2;
         
         rcl_publish(&encoder_counts_pub, &encoder_counts_msgs, NULL);
         ESP_LOGI(TAG,
