@@ -75,7 +75,10 @@ void set_motor_pwm(uint8_t ledc_channel, float pwm_frac)
 }
 
 
-
+float last_error_drive_1 = 0.0f;
+float last_error_drive_2 = 0.0f;
+float last_error_drive_3 = 0.0f;
+float last_error_drive_4 = 0.0f;
 // Drive control task
 void drive_control_task(void *arg)
 {
@@ -91,35 +94,62 @@ void drive_control_task(void *arg)
             right_v = target_right_vel;
             xSemaphoreGive(vel_mutex);
         }
-        //apply PID control to matchc the target velocities
-        float left_frac = left_v / max_linear_speed;
-        float right_frac = right_v / max_linear_speed;
-        if (left_frac > 1.0f) left_frac = 1.0f;
-        if (left_frac < -1.0f) left_frac = -1.0f;
-        if (right_frac > 1.0f) right_frac = 1.0f;
-        if (right_frac < -1.0f) right_frac = -1.0f;
+        //current speed vs target speed
+        float error1 = current_speed1 - target_left_vel;
+        float error2 = current_speed2 - target_right_vel;
+        float error3 = current_speed3 - target_left_vel;
+        float error4 = current_speed4 - target_right_vel;
 
+        float derivative1 = (error1 - last_error_drive_1) / (CONTROL_PERIOD_MS / 1000.0f);
+        float derivative2 = (error1 - last_error_drive_1) / (CONTROL_PERIOD_MS / 1000.0f);
+        float derivative3 = (error1 - last_error_drive_1) / (CONTROL_PERIOD_MS / 1000.0f);
+        float derivative4 = (error1 - last_error_drive_1) / (CONTROL_PERIOD_MS / 1000.0f);
 
-        // float left_frac = left_v / max_linear_speed;
-        // float right_frac = right_v / max_linear_speed;
-        // if (left_frac > 1.0f) left_frac = 1.0f;
-        // if (left_frac < -1.0f) left_frac = -1.0f;
-        // if (right_frac > 1.0f) right_frac = 1.0f;
-        // if (right_frac < -1.0f) right_frac = -1.0f;
+        float out1 = error1 * DRIVE_KP + derivative1 * DRIVE_KD;
+        float out2 = error2 * DRIVE_KP + derivative2 * DRIVE_KD;
+        float out3 = error3 * DRIVE_KP + derivative3 * DRIVE_KD;
+        float out4 = error4 * DRIVE_KP + derivative4 * DRIVE_KD;
 
-        set_motor_pwm(left_channel,  left_frac);
-        set_motor_pwm(right_channel,  right_frac);
+        last_error_drive_1 = error1;
+        last_error_drive_2 = error2;
+        last_error_drive_3 = error3;
+        last_error_drive_4 = error4;
+
+        float left_frac1 = out1 / (float)DRIVE_MAX_PWM;
+        float right_frac1 = out2 / (float)DRIVE_MAX_PWM;
+        float left_frac2 = out3 / (float)DRIVE_MAX_PWM;
+        float right_frac2 = out4 / (float)DRIVE_MAX_PWM;
+
+        if (left_frac1 > 1.0f) left_frac1 = 1.0f;
+        if (left_frac1 < -1.0f) left_frac1 = -1.0f;
+        if (right_frac1 > 1.0f) right_frac1 = 1.0f;
+        if (right_frac1 < -1.0f) right_frac1 = -1.0f;
+        if (left_frac2 > 1.0f) left_frac2 = 1.0f;
+        if (left_frac2 < -1.0f) left_frac2 = -1.0f;
+        if (right_frac2 > 1.0f) right_frac2 = 1.0f;
+        if (right_frac2 < -1.0f) right_frac2 = -1.0f;
+
+        set_motor_pwm(BASE_LEFT_PWM_GPIO_1,  left_frac1);
+        set_motor_pwm(BASE_RIGHT_PWM_GPIO_1 , right_frac1);
+        set_motor_pwm(BASE_LEFT_PWM_GPIO_2,  left_frac2);
+        set_motor_pwm(BASE_RIGHT_PWM_GPIO_2,  right_frac2);
 
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(CONTROL_PERIOD_MS));
     }
 }
-
+    float last_error_arm_1 = 0.0f;
+    float last_error_arm_2 = 0.0f;
+    float last_error_arm_3 = 0.0f;
+    float last_error_arm_4 = 0.0f;
 // Arm control task: simple PID using As5600 measured degrees
 void arm_control_task(void *arg)
 {
     (void)arg;
-    float integral = 0.0f;
-    float last_error = 0.0f;
+    // float integral1 = 0.0f;
+    // float integral2 = 0.0f;
+    // float integral3 = 0.0f;
+    // float integral4 = 0.0f;
+
     TickType_t last_wake = xTaskGetTickCount();
 
     while (1) {
@@ -130,23 +160,49 @@ void arm_control_task(void *arg)
 
         float meas = g_as5600->get_degrees();
 
-        float desired = 0.0f;
-        if (xSemaphoreTake(arm_state_mutex, (TickType_t)10) == pdTRUE) {
-            desired = arm_target_pos;
-            xSemaphoreGive(arm_state_mutex);
-        }
+        float error1 = left_arm_joint_pos_error;
+        float error2 =  right_arm_joint_pos_error;
+        // float error3 = left_middle_joint_pos_error;
+        // float error4 = right_middle_joint_pos_error;
 
-        float error = angle_wrap_delta(desired, meas);
-        integral += error * (CONTROL_PERIOD_MS / 1000.0f);
-        float derivative = (error - last_error) / (CONTROL_PERIOD_MS / 1000.0f);
-        float out = ARM_KP * error + ARM_KI * integral + ARM_KD * derivative;
-        last_error = error;
+        // integral1 += error1 * (CONTROL_PERIOD_MS / 1000.0f);
+        // integral1 += error2 * (CONTROL_PERIOD_MS / 1000.0f);
+        // integral1 += error3 * (CONTROL_PERIOD_MS / 1000.0f);
+        // integral1 += error4 * (CONTROL_PERIOD_MS / 1000.0f);
 
-        float pwm_frac = out / (float)ARM_MAX_PWM;
-        if (pwm_frac > 1.0f) pwm_frac = 1.0f;
-        if (pwm_frac < -1.0f) pwm_frac = -1.0f;
+        float derivative1 = (error1 - last_error_arm_1) / (CONTROL_PERIOD_MS / 1000.0f);
+        float derivative2 = (error2 - last_error_arm_2) / (CONTROL_PERIOD_MS / 1000.0f);
+        // float derivative3 = (error3 - last_error3) / (CONTROL_PERIOD_MS / 1000.0f);
+        // float derivative4 = (error4 - last_error4) / (CONTROL_PERIOD_MS / 1000.0f);
+        
+        float out1 = ARM_KP * error1 + ARM_KD *  derivative1;
+        float out2 = ARM_KP * error2 + ARM_KD *  derivative2;
+        // float out3 = ARM_KP * error3 + ARM_KI * integral3 + ARM_KD * derivative3;
+        // float out4 = ARM_KP * error4 + ARM_KI * integral4 + ARM_KD * derivative4;
 
-        set_motor_pwm(arm_channel, arm_dir_a, arm_dir_b, pwm_frac);
+        last_error_arm_1 = error1; 
+        last_error_arm_2 = error2 ;
+        // last_error3 = error3 ;
+        // last_error4 = error4 ;
+
+        float pwm_frac1 = out1 / (float)ARM_MAX_PWM;
+        float pwm_frac2 = out2 / (float)ARM_MAX_PWM;
+        // float pwm_frac3 = out3 / (float)ARM_MAX_PWM;
+        // float pwm_frac4 = out4 / (float)ARM_MAX_PWM;
+
+        if (pwm_frac1 > 1.0f) pwm_frac1 = 1.0f;
+        if (pwm_frac1 < -1.0f) pwm_frac1 = -1.0f;
+        if (pwm_frac2 > 1.0f) pwm_frac2 = 1.0f;
+        if (pwm_frac2 < -1.0f) pwm_frac2 = -1.0f;
+        // if (pwm_frac3 > 1.0f) pwm_frac3 = 1.0f;
+        // if (pwm_frac3 < -1.0f) pwm_frac3 = -1.0f;
+        // if (pwm_frac4 > 1.0f) pwm_frac4 = 1.0f;
+        // if (pwm_frac4 < -1.0f) pwm_frac4 = -1.0f;
+
+        set_motor_pwm(LEFT_ARM_PWM_GPIO, pwm_frac1);
+        set_motor_pwm(RIGHT_ARM_PWM_GPIO, pwm_frac2);
+
+
 
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(CONTROL_PERIOD_MS));
     }

@@ -6,9 +6,10 @@
 
 void cmd_vel_callback(const void *msgin)
 {
-    const geometry_msgs__msg__Twist *tw = (const geometry_msgs__msg__Twist *)msgin;
-    float linear = (float)tw->linear.x; // m/s
-    float angular = (float)tw->angular.z; // rad/s
+    const geometry_msgs__msg__TwistStamped *tws = (const geometry_msgs__msg__TwistStamped *)msgin;
+    const geometry_msgs__msg__Twist tw = tws->twist;
+    float linear = (float)tw.linear.x; // m/s
+    float angular = (float)tw.angular.z; // rad/s
 
     float v_left = linear - (angular * WHEEL_SEPARATION * 0.5f);
     float v_right = linear + (angular * WHEEL_SEPARATION * 0.5f);
@@ -59,27 +60,30 @@ void micro_ros_init_and_create_comm(void)
     // publishers
     rcl_publisher_options_t pub_ops = rcl_publisher_get_default_options();
 
-    RCCHECK(rcl_publisher_init(
+    RCCHECK(rclc_publisher_init_default(
         &angle_pub, 
         &node, 
         ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), 
-        "/arm/angle", 
-        &pub_ops));
+        "/arm/angle"));
 
-    RCCHECK(rcl_publisher_init(
+    RCCHECK(rclc_publisher_init_default(
         &rpm_pub, 
         &node, 
         ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32), 
-        "/arm/rpm", 
-        &pub_ops)
-    );
+        "/arm/rpm"));
 
-    RCCHECK(rclc_subscription_init_default(
+    RCCHECK(rclc_publisher_init_default(
             &encoder_counts_pub,
             &node,
-            ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
-            "/encoder_counts")
-    );
+            ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float64MultiArray),
+            "/encoder_counts"));
+
+    // RCCHECK(rclc_publisher_init(
+    //         &as5600_sample_pub,
+    //         &node,
+    //         ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
+    //         "/as5600_counts",
+    //         &pub_ops));
 
 
 
@@ -89,8 +93,8 @@ void micro_ros_init_and_create_comm(void)
     RCCHECK(rclc_subscription_init_default(
             &cmd_vel_sub,
             &node,
-            ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
-            "/vaccum_base_controller/cmd_vel_unstamped")
+            ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, TwistStamped),
+            "/vaccum_base_controller/cmd_vel_out")
     );
 
         
@@ -104,17 +108,17 @@ void micro_ros_init_and_create_comm(void)
     );
 
 	
-	RCCHECK(rclc_timer_init_default(
-		&timer,
-		&support,
-		RCL_MS_TO_NS(100),
-		timer_callback));
+	// RCCHECK(rclc_timer_init_default(
+	// 	&timer,
+	// 	&support,
+	// 	RCL_MS_TO_NS(100),
+	// 	timer_callback));
 
 
 
     // executor two subscriptions and two publishers
     RCCHECK(rclc_executor_init(&executor, &support.context, 2, &allocator));
-    RCCHECK(rclc_executor_add_timer(&executor, &timer));
+    // RCCHECK(rclc_executor_add_timer(&executor, &timer));
     RCCHECK(rclc_executor_add_subscription(&executor, &cmd_vel_sub, &cmd_vel_msg, &cmd_vel_callback, ON_NEW_DATA));
     RCCHECK(rclc_executor_add_subscription(&executor, &arm_state_sub, &arm_state_msg, &arm_state_callback, ON_NEW_DATA));
 
@@ -131,3 +135,10 @@ void micro_ros_spin_task(void *arg)
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
+// void timer_callback(rcl_timer_t * timer, int64_t last_call_time)
+// {
+// 	RCLC_UNUSED(last_call_time);
+// 	if (timer != NULL) {
+// 		rcl_publish(&encoder_counts_pub, &encoder_counts_msgs, NULL);
+// 	}
+// }

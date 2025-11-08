@@ -34,12 +34,6 @@ extern const char *TAG ;
 #define WHEEL_RADIUS 0.022f
 #define WHEEL_SEPARATION 0.10f
 
-// PID defaults for arm motor (tune these)
-#define ARM_KP 1.2f
-#define ARM_KI 0.0f
-#define ARM_KD 0.01f
-#define ARM_MAX_PWM 255
-
 
 
 #endif // VACUUM_FIRMWARE_HPP__

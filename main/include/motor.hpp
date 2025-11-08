@@ -19,15 +19,27 @@
 #define BASE_RIGHT_PWM_GPIO_2 25
 #define BASE_RIGHT_LEDC_CHANNEL_2 LEDC_CHANNEL_5
 
+// PID defaults for arm motor (tune these)
+#define ARM_KP 1.2f
+#define ARM_KI 0.0f
+#define ARM_KD 0.01f
+#define ARM_MAX_PWM 255
 
+#define DRIVE_KP 1.2f
+#define DRIVE_KI 0.0f
+#define DRIVE_KD 0.01f
+#define DRIVE_MAX_PWM 255
 // Drive target velocities (m/s)
 extern float target_left_vel;
 extern float target_right_vel;
 extern SemaphoreHandle_t vel_mutex;
 
 // Arm controller target position (degrees)
-extern float arm_target_pos;
 extern SemaphoreHandle_t arm_state_mutex;
+extern float left_arm_joint_pos_error;
+extern float left_middle_joint_pos_error;
+extern float right_arm_joint_pos_error;
+extern float right_middle_joint_pos_error;
 
 
 void motors_init();

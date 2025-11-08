@@ -26,11 +26,16 @@ extern volatile int64_t enc_left_1_count;
 extern volatile int64_t enc_right_1_count;
 extern volatile int64_t enc_left_2_count;
 extern volatile int64_t enc_right_2_count;
-
-extern std_msgs__msg__Int32MultiArray encoder_counts_msgs;
+extern float current_speed1;
+extern float current_speed2;
+extern float current_speed3;
+extern float current_speed4;
+extern std_msgs__msg__Int64MultiArray encoder_counts_msgs;
+extern std_msgs__msg__Float64MultiArray as5600_msgs;
 
 extern SemaphoreHandle_t enc_mutex;
 
+extern rcl_subscription_t as5600_sample_pub;
 
 extern espp::As5600 *g_as5600;
 extern espp::I2c *g_i2c; 
