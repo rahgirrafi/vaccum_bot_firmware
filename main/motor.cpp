@@ -129,10 +129,10 @@ void drive_control_task(void *arg)
         if (right_frac2 > 1.0f) right_frac2 = 1.0f;
         if (right_frac2 < -1.0f) right_frac2 = -1.0f;
 
-        set_motor_pwm(BASE_LEFT_PWM_GPIO_1,  left_frac1);
-        set_motor_pwm(BASE_RIGHT_PWM_GPIO_1 , right_frac1);
-        set_motor_pwm(BASE_LEFT_PWM_GPIO_2,  left_frac2);
-        set_motor_pwm(BASE_RIGHT_PWM_GPIO_2,  right_frac2);
+        set_motor_pwm(BASE_LEFT_LEDC_CHANNEL_1,  left_frac1);
+        set_motor_pwm(BASE_RIGHT_LEDC_CHANNEL_1 , right_frac1);
+        set_motor_pwm(BASE_LEFT_LEDC_CHANNEL_2,  left_frac2);
+        set_motor_pwm(BASE_RIGHT_LEDC_CHANNEL_2,  right_frac2);
 
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(CONTROL_PERIOD_MS));
     }
@@ -199,8 +199,8 @@ void arm_control_task(void *arg)
         // if (pwm_frac4 > 1.0f) pwm_frac4 = 1.0f;
         // if (pwm_frac4 < -1.0f) pwm_frac4 = -1.0f;
 
-        set_motor_pwm(LEFT_ARM_PWM_GPIO, pwm_frac1);
-        set_motor_pwm(RIGHT_ARM_PWM_GPIO, pwm_frac2);
+        set_motor_pwm(LEFT_ARM_LEDC_CHANNEL, pwm_frac1);
+        set_motor_pwm(RIGHT_ARM_LEDC_CHANNEL, pwm_frac2);
 
 
 

@@ -41,29 +41,29 @@ void IRAM_ATTR enc_right_2_isr_handler(void *arg){
 
 void encoders_init(void)
 {
-     // make the I2C that we'll use to communicate
-    static espp::I2c i2c({
-        .port = I2C_MASTER_NUM,
-        .sda_io_num = (gpio_num_t)I2C_MASTER_SDA_GPIO,
-        .scl_io_num = (gpio_num_t)I2C_MASTER_SCL_GPIO,
-    });
+    //  // make the I2C that we'll use to communicate
+    // static espp::I2c i2c({
+    //     .port = I2C_MASTER_NUM,
+    //     .sda_io_num = (gpio_num_t)I2C_MASTER_SDA_GPIO,
+    //     .scl_io_num = (gpio_num_t)I2C_MASTER_SCL_GPIO,
+    // });
 
-    // velocity filter
-    static constexpr float filter_cutoff_hz = 4.0f;
-    static constexpr float encoder_update_period = 0.01f; // seconds
-    static espp::ButterworthFilter<2, espp::BiquadFilterDf2> filter(
-        {.normalized_cutoff_frequency = 2.0f * filter_cutoff_hz * encoder_update_period});
-    //disable filtering by simply returning the raw value from this function
-    auto filter_fn = [&filter](float raw) -> float { return filter.update(raw); };
+    // // velocity filter
+    // static constexpr float filter_cutoff_hz = 4.0f;
+    // static constexpr float encoder_update_period = 0.01f; // seconds
+    // static espp::ButterworthFilter<2, espp::BiquadFilterDf2> filter(
+    //     {.normalized_cutoff_frequency = 2.0f * filter_cutoff_hz * encoder_update_period});
+    // //disable filtering by simply returning the raw value from this function
+    // auto filter_fn = [&filter](float raw) -> float { return filter.update(raw); };
 
-    // now make the as5600 which decodes the data
-    g_as5600 = new espp::As5600(
-        {.write_then_read =
-             std::bind(&espp::I2c::write_read, &i2c, std::placeholders::_1, std::placeholders::_2,
-                       std::placeholders::_3, std::placeholders::_4, std::placeholders::_5),
-         .velocity_filter = filter_fn,
-         .update_period = std::chrono::duration<float>(encoder_update_period),
-         .log_level = espp::Logger::Verbosity::WARN});
+    // // now make the as5600 which decodes the data
+    // g_as5600 = new espp::As5600(
+    //     {.write_then_read =
+    //          std::bind(&espp::I2c::write_read, &i2c, std::placeholders::_1, std::placeholders::_2,
+    //                    std::placeholders::_3, std::placeholders::_4, std::placeholders::_5),
+    //      .velocity_filter = filter_fn,
+    //      .update_period = std::chrono::duration<float>(encoder_update_period),
+    //      .log_level = espp::Logger::Verbosity::WARN});
 
     
 

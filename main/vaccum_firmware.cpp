@@ -42,11 +42,11 @@ print_mem("after-micro-ros-init");
     
 
     // create tasks
-    xTaskCreate(&sensor_task, "sensor_task", 2048, NULL, 5, NULL);
-    xTaskCreate(&encoder_sample_task, "enc_sample", 2048, NULL, 4, NULL);
-    xTaskCreate(&drive_control_task, "drive_ctrl", 2048, NULL, 5, NULL);
-    xTaskCreate(&arm_control_task, "arm_ctrl", 2048, NULL, 6, NULL);
-    xTaskCreate(&micro_ros_spin_task, "micro_ros_spin", 4096, NULL, 3, NULL);
+    // xTaskCreate(&sensor_task, "sensor_task", 2048, NULL, 5, NULL);
+    xTaskCreate(&encoder_sample_task, "enc_sample", 1024, NULL, 4, NULL);
+    xTaskCreate(&drive_control_task, "drive_ctrl", 1024, NULL, 5, NULL);
+    xTaskCreate(&arm_control_task, "arm_ctrl", 1024, NULL, 6, NULL);
+    xTaskCreate(&micro_ros_spin_task, "micro_ros_spin", 8192, NULL, 3, NULL);
 
     ESP_LOGI(TAG, "All tasks launched");
 }

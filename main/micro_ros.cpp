@@ -107,18 +107,55 @@ print_mem("after-sub-vel");
             "/arm_controller/state")
     );
 print_mem("after-sub-state");
-
+executor = rclc_executor_get_zero_initialized_executor();
     // executor two subscriptions and two publishers
     RCCHECK(rclc_executor_init(&executor, &support.context, 2, &allocator));
     RCCHECK(rclc_executor_add_subscription(&executor, &cmd_vel_sub, &cmd_vel_msg, &cmd_vel_callback, ON_NEW_DATA));
     RCCHECK(rclc_executor_add_subscription(&executor, &arm_state_sub, &arm_state_msg, &arm_state_callback, ON_NEW_DATA));
+
+    // Add executor validation
+    if (!executor.handles) {
+        ESP_LOGE("MICRO_ROS", "Executor handles not initialized!");
+        return;
+    }
+
+
+
+    // Print executor info
+    ESP_LOGI("MICRO_ROS", "Executor initialized with %d handles", executor.max_handles);
+
+
 }
 
 void micro_ros_spin_task(void *arg)
 {
-    (void)arg;
+    const TickType_t xDelay = pdMS_TO_TICKS(100);
+    int consecutive_timeouts = 0;
+    const int MAX_TIMEOUTS = 5;
+
     while (1) {
-        rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100));
-        vTaskDelay(pdMS_TO_TICKS(10));
+        rcl_ret_t rc = rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100));
+        
+        if (rc == RCL_RET_TIMEOUT) {
+            consecutive_timeouts++;
+            ESP_LOGW("MICRO_ROS", "Executor timeout %d/%d", consecutive_timeouts, MAX_TIMEOUTS);
+            
+            if (consecutive_timeouts >= MAX_TIMEOUTS) {
+                ESP_LOGE("MICRO_ROS", "Too many timeouts, attempting reconnection");
+                // Check agent connection
+                bool agent_available = rmw_uros_ping_agent(100, 3);
+                if (!agent_available) {
+                    ESP_LOGE("MICRO_ROS", "Agent not responding, reinitializing...");
+                    micro_ros_init_and_create_comm();
+                }
+                consecutive_timeouts = 0;
+            }
+        } else if (rc != RCL_RET_OK) {
+            ESP_LOGW("MICRO_ROS", "Executor spin failed with error: %d", rc);
+        } else {
+            consecutive_timeouts = 0;  // Reset on successful spin
+        }
+        
+        vTaskDelay(xDelay);
     }
 }
