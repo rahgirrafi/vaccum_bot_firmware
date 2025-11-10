@@ -30,7 +30,8 @@ extern float current_speed1;
 extern float current_speed2;
 extern float current_speed3;
 extern float current_speed4;
-extern custom_interfaces__msg__Float32FixedArray encoder_counts_msgs;
+extern custom_interfaces__msg__Float32FixedArray8 encoder_counts_angel_rpm_msgs;
+
 // extern custom_interfaces__msg__Float32FixedArray as5600_msgs;
 
 extern SemaphoreHandle_t enc_mutex;

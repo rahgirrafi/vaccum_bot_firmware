@@ -20,7 +20,7 @@
 #include <std_msgs/msg/float32.h>
 #include <std_msgs/msg/bool.h>
 #include <std_msgs/msg/int64_multi_array.h>
-#include <custom_interfaces/msg/float32_fixed_array.h>
+#include <custom_interfaces/msg/float32_fixed_array8.h>
 // #include <geometry_msgs/msg/twist.h>
 #include <geometry_msgs/msg/twist_stamped.h>
 #include <control_msgs/msg/joint_trajectory_controller_state.h>
@@ -48,20 +48,9 @@ extern rcl_subscription_t cmd_vel_sub;
 
 
 // message storage
-extern std_msgs__msg__Float32 angle_msg;
-extern std_msgs__msg__Float32 rpm_msg;
 extern geometry_msgs__msg__TwistStamped cmd_vel_msg;
 extern control_msgs__msg__JointTrajectoryControllerState arm_state_msg;
-
-extern std_msgs__msg__Bool left_wheel_1_dir_msg;
-extern std_msgs__msg__Bool right_wheel_1_dir_msg;
-extern std_msgs__msg__Bool left_wheel_2_dir_msg;
-extern std_msgs__msg__Bool right_wheel_2_dir_msg;
-
-extern std_msgs__msg__Bool left_arm_dir_msg;
-extern std_msgs__msg__Bool right_arm_dir_msg;
-
-extern custom_interfaces__msg__Float32FixedArray encoder_counts_msgs;
+extern custom_interfaces__msg__Float32FixedArray8 encoder_counts_angel_rpm_msgs;
 // extern custom_interfaces__msg__Float32FixedArray as5600_msgs;
 
 void micro_ros_init_and_create_comm(void);

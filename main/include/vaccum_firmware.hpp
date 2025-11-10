@@ -38,5 +38,6 @@ extern const char *TAG ;
 #define WHEEL_SEPARATION 0.10f
 
 void print_mem(const char *tag);
+void print_memory_info();
 
 #endif // VACUUM_FIRMWARE_HPP__

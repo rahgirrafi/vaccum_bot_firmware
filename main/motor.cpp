@@ -82,11 +82,14 @@ float last_error_drive_4 = 0.0f;
 // Drive control task
 void drive_control_task(void *arg)
 {
+    ESP_LOGI("DRIVE_CONTROL_TASK", "DRIVE CONTROL TASK  INITIATING");
+    
     (void)arg;
     TickType_t last_wake = xTaskGetTickCount();
     const float max_linear_speed = 1.0f; // m/s (tune)
-
+    ESP_LOGI("DRIVE_CONTROL_TASK", "DRIVE CONTROL TASK  INITIATED");
     while (1) {
+        ESP_LOGI("DRIVE_CONTROL_TASK", "DRIVE CONTROL SUPER LOOP BEGIN");
         float left_v = 0.0f;
         float right_v = 0.0f;
         if (xSemaphoreTake(vel_mutex, (TickType_t)10) == pdTRUE) {
@@ -133,6 +136,7 @@ void drive_control_task(void *arg)
         set_motor_pwm(BASE_RIGHT_LEDC_CHANNEL_1 , right_frac1);
         set_motor_pwm(BASE_LEFT_LEDC_CHANNEL_2,  left_frac2);
         set_motor_pwm(BASE_RIGHT_LEDC_CHANNEL_2,  right_frac2);
+        ESP_LOGI("DRIVE_CONTROL_TASK", "DRIVE CONTROL SUPER LOOP END");
 
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(CONTROL_PERIOD_MS));
     }
@@ -144,66 +148,45 @@ void drive_control_task(void *arg)
 // Arm control task: simple PID using As5600 measured degrees
 void arm_control_task(void *arg)
 {
+
+    ESP_LOGI("ARM_CONTROL_TASK", "ARM CONTROL TASK INITATED");
+    motors_init();
+    
     (void)arg;
     // float integral1 = 0.0f;
     // float integral2 = 0.0f;
     // float integral3 = 0.0f;
     // float integral4 = 0.0f;
-
     TickType_t last_wake = xTaskGetTickCount();
+    ESP_LOGI("ARM_CONTROL_TASK", "ARM CONTROL TASK INITIATED");
 
     while (1) {
-        if (!g_as5600) {
-            vTaskDelay(pdMS_TO_TICKS(CONTROL_PERIOD_MS));
-            continue;
-        }
-
-        float meas = g_as5600->get_degrees();
+        ESP_LOGI("ARM_CONTROL_TASK", "ARM CONTROL SUPER LOOP BEGIN");
 
         float error1 = left_arm_joint_pos_error;
         float error2 =  right_arm_joint_pos_error;
-        // float error3 = left_middle_joint_pos_error;
-        // float error4 = right_middle_joint_pos_error;
-
-        // integral1 += error1 * (CONTROL_PERIOD_MS / 1000.0f);
-        // integral1 += error2 * (CONTROL_PERIOD_MS / 1000.0f);
-        // integral1 += error3 * (CONTROL_PERIOD_MS / 1000.0f);
-        // integral1 += error4 * (CONTROL_PERIOD_MS / 1000.0f);
 
         float derivative1 = (error1 - last_error_arm_1) / (CONTROL_PERIOD_MS / 1000.0f);
         float derivative2 = (error2 - last_error_arm_2) / (CONTROL_PERIOD_MS / 1000.0f);
-        // float derivative3 = (error3 - last_error3) / (CONTROL_PERIOD_MS / 1000.0f);
-        // float derivative4 = (error4 - last_error4) / (CONTROL_PERIOD_MS / 1000.0f);
-        
+
         float out1 = ARM_KP * error1 + ARM_KD *  derivative1;
         float out2 = ARM_KP * error2 + ARM_KD *  derivative2;
-        // float out3 = ARM_KP * error3 + ARM_KI * integral3 + ARM_KD * derivative3;
-        // float out4 = ARM_KP * error4 + ARM_KI * integral4 + ARM_KD * derivative4;
 
         last_error_arm_1 = error1; 
         last_error_arm_2 = error2 ;
-        // last_error3 = error3 ;
-        // last_error4 = error4 ;
-
+ 
         float pwm_frac1 = out1 / (float)ARM_MAX_PWM;
         float pwm_frac2 = out2 / (float)ARM_MAX_PWM;
-        // float pwm_frac3 = out3 / (float)ARM_MAX_PWM;
-        // float pwm_frac4 = out4 / (float)ARM_MAX_PWM;
 
         if (pwm_frac1 > 1.0f) pwm_frac1 = 1.0f;
         if (pwm_frac1 < -1.0f) pwm_frac1 = -1.0f;
         if (pwm_frac2 > 1.0f) pwm_frac2 = 1.0f;
         if (pwm_frac2 < -1.0f) pwm_frac2 = -1.0f;
-        // if (pwm_frac3 > 1.0f) pwm_frac3 = 1.0f;
-        // if (pwm_frac3 < -1.0f) pwm_frac3 = -1.0f;
-        // if (pwm_frac4 > 1.0f) pwm_frac4 = 1.0f;
-        // if (pwm_frac4 < -1.0f) pwm_frac4 = -1.0f;
 
         set_motor_pwm(LEFT_ARM_LEDC_CHANNEL, pwm_frac1);
         set_motor_pwm(RIGHT_ARM_LEDC_CHANNEL, pwm_frac2);
 
-
-
+        ESP_LOGI("ARM_CONTROL_TASK", "ARM CONTROL SUPER LOOP END");
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(CONTROL_PERIOD_MS));
     }
 }

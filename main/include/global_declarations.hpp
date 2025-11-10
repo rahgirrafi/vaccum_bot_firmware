@@ -30,36 +30,18 @@ SemaphoreHandle_t i2c_mutex;
 
 rcl_node_t node;
 rclc_executor_t executor;
-rcl_timer_t timer;
 
-// micro-ROS publishers and subscribers
-rcl_publisher_t angle_pub;
-rcl_publisher_t rpm_pub;
+
+
 rcl_publisher_t encoder_counts_pub;
-
-
-// rcl_publisher_t left_wheel_1_dir_pub;
-// rcl_publisher_t right_wheel_1_dir_pub;
-// rcl_publisher_t left_wheel_2_dir_pub;
-// rcl_publisher_t right_wheel_2_dir_pub;
-
-// rcl_publisher_t left_arm_dir_pub;
-// rcl_publisher_t right_arm_dir_pub;
 
 rcl_subscription_t arm_state_sub;
 rcl_subscription_t cmd_vel_sub;
 
 // message storage
-std_msgs__msg__Float32 angle_msg;
-std_msgs__msg__Float32 rpm_msg;
 geometry_msgs__msg__TwistStamped cmd_vel_msg;
 control_msgs__msg__JointTrajectoryControllerState arm_state_msg;
+custom_interfaces__msg__Float32FixedArray8 encoder_counts_angel_rpm_msgs;
 
-std_msgs__msg__Bool left_wheel_1_dir_msg;
-std_msgs__msg__Bool right_wheel_1_dir_msg;
-std_msgs__msg__Bool left_wheel_2_dir_msg;
-std_msgs__msg__Bool right_wheel_2_dir_msg;
-
-custom_interfaces__msg__Float32FixedArray encoder_counts_msgs;
 // custom_interfaces__msg__Float32FixedArray as5600_msgs;
 const char *TAG = "arm_drive_node";
