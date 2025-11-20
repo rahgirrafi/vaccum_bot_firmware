@@ -105,7 +105,6 @@ void micro_ros_spin_task(void *arg)
         ESP_LOGI("MICRO_ROS_TASK", "SPIN TASK SUPERLOOP BEGIN");
         rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100));
         ESP_LOGI("MICRO_ROS_TASK", "SPIN TASK SUPERLOOP ENDED");
-        
         vTaskDelay(xDelay);
     }
 }
