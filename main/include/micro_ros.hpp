@@ -21,7 +21,7 @@
 #include <std_msgs/msg/bool.h>
 #include <std_msgs/msg/int64_multi_array.h>
 #include <custom_interfaces/msg/float32_fixed_array8.h>
-// #include <geometry_msgs/msg/twist.h>
+#include <geometry_msgs/msg/twist.h>
 #include <geometry_msgs/msg/twist_stamped.h>
 #include <control_msgs/msg/joint_trajectory_controller_state.h>
 
@@ -33,6 +33,8 @@ extern float right_middle_joint_pos_error;
 
 extern rcl_node_t node;
 extern rclc_executor_t executor;
+extern rcl_allocator_t allocator;
+extern rclc_support_t support;
 extern rcl_timer_t timer;
 
 

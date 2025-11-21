@@ -136,6 +136,9 @@ void drive_control_task(void *arg)
         set_motor_pwm(BASE_RIGHT_LEDC_CHANNEL_1 , right_frac1);
         set_motor_pwm(BASE_LEFT_LEDC_CHANNEL_2,  left_frac2);
         set_motor_pwm(BASE_RIGHT_LEDC_CHANNEL_2,  right_frac2);
+        ESP_LOGI("DRIVE_CONTROL_TASK", "Left Target Vel: %.3f, Right Target Vel: %.3f", left_v, right_v);
+        ESP_LOGI("DRIVE_CONTROL_TASK", "Left PWM1: %.3f, Right PWM1: %.3f, Left PWM2: %.3f, Right PWM2: %.3f", left_frac1, right_frac1, left_frac2, right_frac2);
+        ESP_LOGI("DRIVE_CONTROL_TASK", "Left PWM Pin1: %d, Right PWM Pin1: %d, Left PWM Pin2: %d, Right PWM Pin2: %d", BASE_LEFT_PWM_GPIO_1, BASE_RIGHT_PWM_GPIO_1, BASE_LEFT_PWM_GPIO_2, BASE_RIGHT_PWM_GPIO_2);
         ESP_LOGI("DRIVE_CONTROL_TASK", "DRIVE CONTROL SUPER LOOP END");
 
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(CONTROL_PERIOD_MS));

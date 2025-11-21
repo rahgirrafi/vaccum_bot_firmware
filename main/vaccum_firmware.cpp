@@ -24,11 +24,11 @@ extern "C" void app_main(void)
     arm_state_mutex = xSemaphoreCreateMutex();
     enc_mutex = xSemaphoreCreateMutex();
 
-    
+    micro_ros_init_and_create_comm();
 
     // create tasks
     // xTaskCreate(&sensor_task, "sensor_task", 4096, NULL, 5, NULL);
-    xTaskCreate(encoder_sample_task, "enc_sample", 4096, NULL, 2, NULL);
+    xTaskCreate(encoder_sample_task, "enc_sample", 4096, NULL, 3, NULL);
     xTaskCreate(drive_control_task, "drive_ctrl", 4096, NULL, 1, NULL);
     xTaskCreate(arm_control_task, "arm_ctrl", 4096, NULL, 1, NULL);
     xTaskCreate(micro_ros_spin_task, "micro_ros_spin", 8192, NULL, 6, NULL);

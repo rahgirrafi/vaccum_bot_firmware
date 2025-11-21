@@ -30,8 +30,8 @@ SemaphoreHandle_t i2c_mutex;
 
 rcl_node_t node;
 rclc_executor_t executor;
-
-
+rcl_allocator_t allocator;
+rclc_support_t support;
 
 rcl_publisher_t encoder_counts_pub;
 
