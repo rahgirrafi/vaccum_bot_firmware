@@ -11,7 +11,7 @@ float angle_wrap_delta(float new_deg, float old_deg){
 
 // ========= PWM / GPIO init =========
 void motors_init(){
-   
+    ESP_LOGI("MOTOR", "Initializing LEDC PWM for motor control...");
    
     // Configure LEDC PWM timers and channels
     ledc_timer_config_t ledc_timer = {
@@ -21,7 +21,12 @@ void motors_init(){
         .freq_hz = 5000, // 5 kHz
         .clk_cfg = LEDC_AUTO_CLK,
     };
-    ledc_timer_config(&ledc_timer);
+    esp_err_t err = ledc_timer_config(&ledc_timer);
+    if (err != ESP_OK) {
+        ESP_LOGE("MOTOR", "Failed to configure LEDC timer: %s", esp_err_to_name(err));
+        return;
+    }
+    ESP_LOGI("MOTOR", "LEDC timer configured successfully");
 
     // Channel for left arm
     ledc_channel_config_t ledc_channel = {
@@ -33,33 +38,58 @@ void motors_init(){
         .duty = 0,
         .hpoint = 0,
     };
-    ledc_channel_config(&ledc_channel);
+    err = ledc_channel_config(&ledc_channel);
+    if (err != ESP_OK) {
+        ESP_LOGE("MOTOR", "Failed to configure left arm channel: %s", esp_err_to_name(err));
+        return;
+    }
     
     // Channel for right arm
     ledc_channel.channel = RIGHT_ARM_LEDC_CHANNEL;
     ledc_channel.gpio_num = RIGHT_ARM_PWM_GPIO;
-    ledc_channel_config(&ledc_channel);
-
+    err = ledc_channel_config(&ledc_channel);
+    if (err != ESP_OK) {
+        ESP_LOGE("MOTOR", "Failed to configure right arm channel: %s", esp_err_to_name(err));
+        return;
+    }
 
     // Left Base Body 1
     ledc_channel.channel = BASE_LEFT_LEDC_CHANNEL_1;
     ledc_channel.gpio_num = BASE_LEFT_PWM_GPIO_1;
-    ledc_channel_config(&ledc_channel);
+    err = ledc_channel_config(&ledc_channel);
+    if (err != ESP_OK) {
+        ESP_LOGE("MOTOR", "Failed to configure left base 1 channel: %s", esp_err_to_name(err));
+        return;
+    }
 
     // Right Base Body 1
     ledc_channel.channel = BASE_RIGHT_LEDC_CHANNEL_1;
     ledc_channel.gpio_num = BASE_RIGHT_PWM_GPIO_1;
-    ledc_channel_config(&ledc_channel);
+    err = ledc_channel_config(&ledc_channel);
+    if (err != ESP_OK) {
+        ESP_LOGE("MOTOR", "Failed to configure right base 1 channel: %s", esp_err_to_name(err));
+        return;
+    }
 
     // Left Base Body 2
     ledc_channel.channel = BASE_LEFT_LEDC_CHANNEL_2;
     ledc_channel.gpio_num = BASE_LEFT_PWM_GPIO_2;
-    ledc_channel_config(&ledc_channel);
+    err = ledc_channel_config(&ledc_channel);
+    if (err != ESP_OK) {
+        ESP_LOGE("MOTOR", "Failed to configure left base 2 channel: %s", esp_err_to_name(err));
+        return;
+    }
 
     // Right Base Body 2
     ledc_channel.channel = BASE_RIGHT_LEDC_CHANNEL_2;
     ledc_channel.gpio_num = BASE_RIGHT_PWM_GPIO_2;
-    ledc_channel_config(&ledc_channel);
+    err = ledc_channel_config(&ledc_channel);
+    if (err != ESP_OK) {
+        ESP_LOGE("MOTOR", "Failed to configure right base 2 channel: %s", esp_err_to_name(err));
+        return;
+    }
+    
+    ESP_LOGI("MOTOR", "All LEDC PWM channels configured successfully");
 }
 
 void set_motor_pwm(uint8_t ledc_channel, float pwm_frac)
@@ -67,11 +97,20 @@ void set_motor_pwm(uint8_t ledc_channel, float pwm_frac)
     // pwm_frac in range -1..1
     if (pwm_frac > 1.0f) pwm_frac = 1.0f;
     if (pwm_frac < -1.0f) pwm_frac = -1.0f;
-    //publish the raspberry pi direction control pin msg
-    int duty = (int)(fabsf(pwm_frac) * 255.0f);
+    
+    // Calculate duty for 13-bit resolution (0-8191)
+    // LEDC_TIMER_13_BIT = 2^13 - 1 = 8191
+    int duty = (int)(fabsf(pwm_frac) * 8191.0f);
 
-    ledc_set_duty(LEDC_HIGH_SPEED_MODE, (ledc_channel_t)ledc_channel, duty);
-    ledc_update_duty(LEDC_HIGH_SPEED_MODE, (ledc_channel_t)ledc_channel);
+    esp_err_t err1 = ledc_set_duty(LEDC_HIGH_SPEED_MODE, (ledc_channel_t)ledc_channel, duty);
+    esp_err_t err2 = ledc_update_duty(LEDC_HIGH_SPEED_MODE, (ledc_channel_t)ledc_channel);
+    
+    if (err1 != ESP_OK) {
+        ESP_LOGE("MOTOR", "Failed to set duty for channel %d: %s", ledc_channel, esp_err_to_name(err1));
+    }
+    if (err2 != ESP_OK) {
+        ESP_LOGE("MOTOR", "Failed to update duty for channel %d: %s", ledc_channel, esp_err_to_name(err2));
+    }
 }
 
 
@@ -153,7 +192,6 @@ void arm_control_task(void *arg)
 {
 
     ESP_LOGI("ARM_CONTROL_TASK", "ARM CONTROL TASK INITATED");
-    motors_init();
     
     (void)arg;
     // float integral1 = 0.0f;
