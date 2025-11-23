@@ -102,11 +102,14 @@ void encoder_sample_task(void *arg)
     (void)arg;
     int64_t last_left1 = 0, last_right1 = 0;
     int64_t last_left2 = 0, last_right2 = 0;
+    int log_counter = 0;  // Add missing log counter variable
     TickType_t last_wake = xTaskGetTickCount();
     ESP_LOGI("ENCODER_TASK", "ENCODER SAMPLE TASK SUPER LOOP INITIATED");
     
     while (1) {
-        ESP_LOGI("ENCODER_TASK", "ENCODER SAMPLE TASK SUPER LOOP BEGIN");
+        if(log_counter % 40 == 0) {
+            ESP_LOGI("ENCODER_TASK", "ENCODER SAMPLE TASK SUPER LOOP BEGIN");
+        }
         int64_t left1 = (int64_t) __atomic_load_n(&enc_left_1_count, __ATOMIC_RELAXED);
         int64_t right1 = (int64_t) __atomic_load_n(&enc_right_1_count, __ATOMIC_RELAXED);
         int64_t left2 = (int64_t) __atomic_load_n(&enc_left_2_count, __ATOMIC_RELAXED);
@@ -136,26 +139,34 @@ void encoder_sample_task(void *arg)
         current_speed4 = right_mps2;
 
 
-        // encoder_counts_angel_rpm_msgs.element[0] = left_rps1;
-        // encoder_counts_angel_rpm_msgs.element[1] = right_rps1;
-        // encoder_counts_angel_rpm_msgs.element[2] = left_rps2;
-        // encoder_counts_angel_rpm_msgs.element[3] = right_rps2;
-        encoder_counts_angel_rpm_msgs.element[0] =0;
-        encoder_counts_angel_rpm_msgs.element[1] = 0;
-        encoder_counts_angel_rpm_msgs.element[2] =0;
-        encoder_counts_angel_rpm_msgs.element[3] = 0;
+        // Protect encoder message with mutex
+        if (xSemaphoreTake(encoder_msg_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+            // encoder_counts_angel_rpm_msgs.element[0] = left_rps1;
+            // encoder_counts_angel_rpm_msgs.element[1] = right_rps1;
+            // encoder_counts_angel_rpm_msgs.element[2] = left_rps2;
+            // encoder_counts_angel_rpm_msgs.element[3] = right_rps2;
+            encoder_counts_angel_rpm_msgs.element[0] = 0;
+            encoder_counts_angel_rpm_msgs.element[1] = 0;
+            encoder_counts_angel_rpm_msgs.element[2] = 0;
+            encoder_counts_angel_rpm_msgs.element[3] = 0;
+            
+            xSemaphoreGive(encoder_msg_mutex);
+        } else {
+            ESP_LOGW("ENCODER_TASK", "Failed to take encoder_msg_mutex for basic data");
+        }
 
 
         float last_degrees = 0.0f;
-        ESP_LOGI("SENSOR_TASK", "SENSOR TASK INITIATED");
-        
-      
+
+        if(log_counter % 40 == 0) {
+            ESP_LOGI("SENSOR_TASK", "SENSOR TASK INITIATED");
+        }
 
         // rcl_publish(&as5600_sample_pub, &as5600_msgs, NULL)
         // ESP_LOGI(TAG, "AS5600: Seconds = %f, Count = %f, Radians = %f, Degrees = %f, RPM = %f \n", seconds, count, radians, degrees, rpm )
-        ESP_LOGI("ENCODER_TASK", "ENCODER SAMPLE TASK SUPER LOOP ENDED");
 
-            ESP_LOGI("SENSOR_TASK", "SENSOR TASK SUPER LOOP BEGIN");
+
+           
             TickType_t last_wake = xTaskGetTickCount();
             if (!g_as5600) {
                 vTaskDelay(pdMS_TO_TICKS(SENSOR_PUBLISH_PERIOD_MS));
@@ -169,24 +180,36 @@ void encoder_sample_task(void *arg)
             // Optionally compute delta yourself if needed
             float d = angle_wrap_delta(degrees, last_degrees);
             last_degrees = degrees;
-            // encoder_counts_angel_rpm_msgs.element[4] = degrees;
-            // encoder_counts_angel_rpm_msgs.element[5] =  rpm;
-            encoder_counts_angel_rpm_msgs.element[4] = 99;
-            encoder_counts_angel_rpm_msgs.element[5] =  99;
             
-
-            rcl_ret_t ret;
-            
-            ret = rcl_publish(&encoder_counts_pub, &encoder_counts_angel_rpm_msgs, NULL);
-            ESP_LOGI(TAG,
-                    "MOTOR Encoders L1: %lld R1: %lld | L2: %lld R2: %lld",
-                    left1, right1,
-                    left2, right2);
-           
-                    if (ret != RCL_RET_OK) {
-                ESP_LOGW(TAG, "rpm publish failed: %d", ret);
+            // Protect encoder message publishing with mutex
+            if (xSemaphoreTake(encoder_msg_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+                // encoder_counts_angel_rpm_msgs.element[4] = degrees;
+                // encoder_counts_angel_rpm_msgs.element[5] =  rpm;
+                encoder_counts_angel_rpm_msgs.element[4] = 99;
+                encoder_counts_angel_rpm_msgs.element[5] = 99;
+                
+                // SOLUTION: Just update the message data - let micro_ros_spin_task handle publishing
+                // This eliminates the race condition between tasks accessing micro-ROS network stack
+                
+                xSemaphoreGive(encoder_msg_mutex);
+                
+                ESP_LOGI("ENCODER_TASK", "Encoder data updated (publishing handled by micro_ros_spin_task)");
+            } else {
+                ESP_LOGW("ENCODER_TASK", "Failed to take encoder_msg_mutex for updating data");
             }
             
-            vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(ENCODER_SAMPLE_MS));
+            // Throttle encoder data logging to reduce memory pressure
+            if(log_counter % 50 == 0) {
+                ESP_LOGI(TAG,
+                        "MOTOR Encoders L1: %lld R1: %lld | L2: %lld R2: %lld",
+                        left1, right1,
+                        left2, right2);
+            }
+           
+            if(log_counter % 100 == 0) {
+                ESP_LOGI("ENCODER_TASK", "ENCODER SAMPLE TASK SUPER LOOP ENDED (iteration %lu)", log_counter);
+            }
+        log_counter++;
+        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(ENCODER_SAMPLE_MS));
         }
 }

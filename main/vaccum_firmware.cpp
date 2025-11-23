@@ -23,20 +23,21 @@ extern "C" void app_main(void)
     vel_mutex = xSemaphoreCreateMutex();
     arm_state_mutex = xSemaphoreCreateMutex();
     enc_mutex = xSemaphoreCreateMutex();
+    encoder_msg_mutex = xSemaphoreCreateMutex();
 
     // Initialize motors/PWM before creating tasks
     motors_init();
     ESP_LOGI(TAG, "Motors PWM initialized");
 
+    // RE-ENABLE MICRO-ROS with ultra-conservative settings
     micro_ros_init_and_create_comm();
 
     // create tasks with optimized priorities for better responsiveness
-    // xTaskCreate(&sensor_task, "sensor_task", 4096, NULL, 5, NULL);
     xTaskCreate(encoder_sample_task, "enc_sample", 4096, NULL, 3, NULL);
     xTaskCreate(drive_control_task, "drive_ctrl", 4096, NULL, 4, NULL);  // Increased priority for motor control
-    xTaskCreate(arm_control_task, "arm_ctrl", 4096, NULL, 2, NULL);      // Lower priority for arm control
-    xTaskCreate(micro_ros_spin_task, "micro_ros_spin", 8192, NULL, 5, NULL); // High priority for communication
-    ESP_LOGI(TAG, "All tasks launched");
+    // RE-ENABLE MICRO-ROS with VERY LOW priority and frequency
+    xTaskCreate(micro_ros_spin_task, "micro_ros_spin", 8192, NULL, 1, NULL); // LOWEST priority
+    ESP_LOGI(TAG, "All tasks launched with ultra-conservative micro-ROS settings");
 }       
 
 

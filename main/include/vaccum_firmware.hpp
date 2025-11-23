@@ -28,10 +28,10 @@
 using namespace std::chrono_literals;
 extern const char *TAG ;
 
-// Timings
-#define SENSOR_PUBLISH_PERIOD_MS 50 // 20 Hz
+// Timings - ULTRA-CONSERVATIVE to prevent network buffer corruption
+#define SENSOR_PUBLISH_PERIOD_MS 1000 // 1 Hz - MINIMAL publishing rate
 #define CONTROL_PERIOD_MS 20 // 50 Hz
-#define ENCODER_SAMPLE_MS 100
+#define ENCODER_SAMPLE_MS 200 // 5 Hz - Keep sensor sampling rate
 
 // Robot params
 #define WHEEL_RADIUS 0.022f

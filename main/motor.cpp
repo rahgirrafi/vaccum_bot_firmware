@@ -118,6 +118,11 @@ float last_error_drive_1 = 0.0f;
 float last_error_drive_2 = 0.0f;
 float last_error_drive_3 = 0.0f;
 float last_error_drive_4 = 0.0f;
+    float last_error_arm_1 = 0.0f;
+    float last_error_arm_2 = 0.0f;
+    float last_error_arm_3 = 0.0f;
+    float last_error_arm_4 = 0.0f;
+// Arm control task: simple PID using As5600 measured degrees
 // Drive control task
 void drive_control_task(void *arg)
 {
@@ -126,9 +131,15 @@ void drive_control_task(void *arg)
     (void)arg;
     TickType_t last_wake = xTaskGetTickCount();
     const float max_linear_speed = 1.0f; // m/s (tune)
-    ESP_LOGI("DRIVE_CONTROL_TASK", "DRIVE CONTROL TASK  INITIATED");
+
+    static uint32_t log_counter = 0;
+
+    
+
     while (1) {
-        ESP_LOGI("DRIVE_CONTROL_TASK", "DRIVE CONTROL SUPER LOOP BEGIN");
+        if(log_counter % 40 == 0) {
+            ESP_LOGI("DRIVE_CONTROL_TASK", "DRIVE CONTROL TASK  INITIATED");
+        }
         float left_v = 0.0f;
         float right_v = 0.0f;
         if (xSemaphoreTake(vel_mutex, (TickType_t)10) == pdTRUE) {
@@ -175,43 +186,24 @@ void drive_control_task(void *arg)
         set_motor_pwm(BASE_RIGHT_LEDC_CHANNEL_1 , right_frac1);
         set_motor_pwm(BASE_LEFT_LEDC_CHANNEL_2,  left_frac2);
         set_motor_pwm(BASE_RIGHT_LEDC_CHANNEL_2,  right_frac2);
-        ESP_LOGI("DRIVE_CONTROL_TASK", "Left Target Vel: %.3f, Right Target Vel: %.3f", left_v, right_v);
-        ESP_LOGI("DRIVE_CONTROL_TASK", "Left PWM1: %.3f, Right PWM1: %.3f, Left PWM2: %.3f, Right PWM2: %.3f", left_frac1, right_frac1, left_frac2, right_frac2);
-        ESP_LOGI("DRIVE_CONTROL_TASK", "Left PWM Pin1: %d, Right PWM Pin1: %d, Left PWM Pin2: %d, Right PWM Pin2: %d", BASE_LEFT_PWM_GPIO_1, BASE_RIGHT_PWM_GPIO_1, BASE_LEFT_PWM_GPIO_2, BASE_RIGHT_PWM_GPIO_2);
-        ESP_LOGI("DRIVE_CONTROL_TASK", "DRIVE CONTROL SUPER LOOP END");
+        // ESP_LOGI("DRIVE_CONTROL_TASK", "Left Target Vel: %.3f, Right Target Vel: %.3f", left_v, right_v);
+        // ESP_LOGI("DRIVE_CONTROL_TASK", "Left PWM1: %.3f, Right PWM1: %.3f, Left PWM2: %.3f, Right PWM2: %.3f", left_frac1, right_frac1, left_frac2, right_frac2);
+        // ESP_LOGI("DRIVE_CONTROL_TASK", "Left PWM Pin1: %d, Right PWM Pin1: %d, Left PWM Pin2: %d, Right PWM Pin2: %d", BASE_LEFT_PWM_GPIO_1, BASE_RIGHT_PWM_GPIO_1, BASE_LEFT_PWM_GPIO_2, BASE_RIGHT_PWM_GPIO_2);
+        if (log_counter % 40 == 0) {
+                ESP_LOGI("DRIVE_CONTROL_TASK", "DRIVE CONTROL SUPERLOOP ENDED (iteration %lu)", log_counter);
+            }
 
-        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(CONTROL_PERIOD_MS));
-    }
-}
-    float last_error_arm_1 = 0.0f;
-    float last_error_arm_2 = 0.0f;
-    float last_error_arm_3 = 0.0f;
-    float last_error_arm_4 = 0.0f;
-// Arm control task: simple PID using As5600 measured degrees
-void arm_control_task(void *arg)
-{
+        if (log_counter % 40 == 0) {
+            ESP_LOGI("ARM_CONTROL_TASK", "ARM CONTROL SUPER LOOP BEGIN (iteration %lu)", log_counter);
+        }
+        error1 = left_arm_joint_pos_error;
+        error2 =  right_arm_joint_pos_error;
 
-    ESP_LOGI("ARM_CONTROL_TASK", "ARM CONTROL TASK INITATED");
-    
-    (void)arg;
-    // float integral1 = 0.0f;
-    // float integral2 = 0.0f;
-    // float integral3 = 0.0f;
-    // float integral4 = 0.0f;
-    TickType_t last_wake = xTaskGetTickCount();
-    ESP_LOGI("ARM_CONTROL_TASK", "ARM CONTROL TASK INITIATED");
+        derivative1 = (error1 - last_error_arm_1) / (CONTROL_PERIOD_MS / 1000.0f);
+        derivative2 = (error2 - last_error_arm_2) / (CONTROL_PERIOD_MS / 1000.0f);
 
-    while (1) {
-        ESP_LOGI("ARM_CONTROL_TASK", "ARM CONTROL SUPER LOOP BEGIN");
-
-        float error1 = left_arm_joint_pos_error;
-        float error2 =  right_arm_joint_pos_error;
-
-        float derivative1 = (error1 - last_error_arm_1) / (CONTROL_PERIOD_MS / 1000.0f);
-        float derivative2 = (error2 - last_error_arm_2) / (CONTROL_PERIOD_MS / 1000.0f);
-
-        float out1 = ARM_KP * error1 + ARM_KD *  derivative1;
-        float out2 = ARM_KP * error2 + ARM_KD *  derivative2;
+        out1 = ARM_KP * error1 + ARM_KD *  derivative1;
+        out2 = ARM_KP * error2 + ARM_KD *  derivative2;
 
         last_error_arm_1 = error1; 
         last_error_arm_2 = error2 ;
@@ -227,7 +219,10 @@ void arm_control_task(void *arg)
         set_motor_pwm(LEFT_ARM_LEDC_CHANNEL, pwm_frac1);
         set_motor_pwm(RIGHT_ARM_LEDC_CHANNEL, pwm_frac2);
 
-        ESP_LOGI("ARM_CONTROL_TASK", "ARM CONTROL SUPER LOOP END");
+        if (log_counter % 40 == 0) {
+                ESP_LOGI("ARM_CONTROL_TASK", "ARM CONTROL SUPERLOOP ENDED (iteration %lu)", log_counter);
+            }
+        log_counter++;
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(CONTROL_PERIOD_MS));
     }
 }

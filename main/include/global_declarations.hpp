@@ -43,5 +43,8 @@ geometry_msgs__msg__TwistStamped cmd_vel_msg;
 control_msgs__msg__JointTrajectoryControllerState arm_state_msg;
 custom_interfaces__msg__Float32FixedArray8 encoder_counts_angel_rpm_msgs;
 
+// Mutex for protecting encoder message access
+SemaphoreHandle_t encoder_msg_mutex = NULL;
+
 // custom_interfaces__msg__Float32FixedArray as5600_msgs;
 const char *TAG = "arm_drive_node";
