@@ -137,7 +137,7 @@ void drive_control_task(void *arg)
             xSemaphoreGive(vel_mutex);
         }
         //current speed vs target speed
-        float error1 = current_speed1 - target_left_vel;
+        float error1 = (current_speed1 - target_left_vel);
         float error2 = current_speed2 - target_right_vel;
         float error3 = current_speed3 - target_left_vel;
         float error4 = current_speed4 - target_right_vel;

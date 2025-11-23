@@ -47,7 +47,8 @@ void micro_ros_init_and_create_comm(void)
     // Initialize message structures using proper micro-ROS initialization
     memset(&cmd_vel_msg, 0, sizeof(cmd_vel_msg));
     memset(&arm_state_msg, 0, sizeof(arm_state_msg));  
-    memset(&encoder_counts_angel_rpm_msgs, 0, sizeof(encoder_counts_angel_rpm_msgs));
+    // Properly initialize the custom message structure
+    custom_interfaces__msg__Float32FixedArray8__init(&encoder_counts_angel_rpm_msgs);     
     
     allocator = rcl_get_default_allocator();
     rcl_init_options_t init_options = rcl_get_zero_initialized_init_options();
@@ -112,18 +113,31 @@ void micro_ros_spin_task(void *arg)
 {
     ESP_LOGI("MICRO_ROS_TASK", "SPIN TASK INITIATING");
     
-    const TickType_t xDelay = pdMS_TO_TICKS(100);
+    // Reduce delay to 5ms for much faster command velocity processing (200 Hz)
+    const TickType_t xDelay = pdMS_TO_TICKS(5);
     ESP_LOGI("MICRO_ROS_TASK", "SPIN TASK INITIATED");
+    
     while (1) {
-        ESP_LOGI("MICRO_ROS_TASK", "SPIN TASK SUPERLOOP BEGIN");
-        
-        rcl_ret_t rc = rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100));
-        if (rc != RCL_RET_OK) {
-            ESP_LOGW("MICRO_ROS_TASK", "Executor spin failed: %d - Agent may not be available", (int)rc);
-        } else {
-            ESP_LOGI("MICRO_ROS_TASK", "SPIN TASK SUPERLOOP ENDED");
+        // Reduced log frequency to avoid spam - only log every 40 iterations (once per 200ms)
+        static uint32_t log_counter = 0;
+        if (log_counter % 40 == 0) {
+            ESP_LOGI("MICRO_ROS_TASK", "SPIN TASK SUPERLOOP BEGIN (iteration %lu)", log_counter);
         }
         
+        // Use shorter timeout for more responsive processing
+        rcl_ret_t rc = rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
+        if (rc != RCL_RET_OK) {
+            // Reduce warning frequency to avoid spam
+            if (log_counter % 100 == 0) {
+                ESP_LOGW("MICRO_ROS_TASK", "Executor spin failed: %d - Agent may not be available", (int)rc);
+            }
+        } else {
+            if (log_counter % 40 == 0) {
+                ESP_LOGI("MICRO_ROS_TASK", "SPIN TASK SUPERLOOP ENDED");
+            }
+        }
+        
+        log_counter++;
         vTaskDelay(xDelay);
     }
 }
