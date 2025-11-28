@@ -24,9 +24,9 @@ float current_speed3 = 0;
 float current_speed4 = 0;
 
 SemaphoreHandle_t enc_mutex;
-espp::As5600 *g_as5600 = nullptr;
-espp::I2c *g_i2c = nullptr; // must outlive g_as5600
-SemaphoreHandle_t i2c_mutex;
+// Two AS5600 encoders on separate I2C buses
+espp::As5600 *g_as5600_0 = nullptr; // First encoder on I2C_NUM_1
+espp::As5600 *g_as5600_1 = nullptr; // Second encoder on I2C_NUM_0
 
 rcl_node_t node;
 rclc_executor_t executor;

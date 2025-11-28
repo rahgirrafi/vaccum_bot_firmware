@@ -137,9 +137,9 @@ void drive_control_task(void *arg)
     
 
     while (1) {
-        if(log_counter % 40 == 0) {
-            ESP_LOGI("DRIVE_CONTROL_TASK", "DRIVE CONTROL TASK  INITIATED");
-        }
+        // if(log_counter % 40 == 0) {
+        //     ESP_LOGI("DRIVE_CONTROL_TASK", "DRIVE CONTROL TASK  INITIATED");
+        // }
         float left_v = 0.0f;
         float right_v = 0.0f;
         if (xSemaphoreTake(vel_mutex, (TickType_t)10) == pdTRUE) {
@@ -189,13 +189,13 @@ void drive_control_task(void *arg)
         // ESP_LOGI("DRIVE_CONTROL_TASK", "Left Target Vel: %.3f, Right Target Vel: %.3f", left_v, right_v);
         // ESP_LOGI("DRIVE_CONTROL_TASK", "Left PWM1: %.3f, Right PWM1: %.3f, Left PWM2: %.3f, Right PWM2: %.3f", left_frac1, right_frac1, left_frac2, right_frac2);
         // ESP_LOGI("DRIVE_CONTROL_TASK", "Left PWM Pin1: %d, Right PWM Pin1: %d, Left PWM Pin2: %d, Right PWM Pin2: %d", BASE_LEFT_PWM_GPIO_1, BASE_RIGHT_PWM_GPIO_1, BASE_LEFT_PWM_GPIO_2, BASE_RIGHT_PWM_GPIO_2);
-        if (log_counter % 40 == 0) {
-                ESP_LOGI("DRIVE_CONTROL_TASK", "DRIVE CONTROL SUPERLOOP ENDED (iteration %lu)", log_counter);
-            }
+        // if (log_counter % 40 == 0) {
+        //         ESP_LOGI("DRIVE_CONTROL_TASK", "DRIVE CONTROL SUPERLOOP ENDED (iteration %lu)", log_counter);
+        //     }
 
-        if (log_counter % 40 == 0) {
-            ESP_LOGI("ARM_CONTROL_TASK", "ARM CONTROL SUPER LOOP BEGIN (iteration %lu)", log_counter);
-        }
+        // if (log_counter % 40 == 0) {
+        //     ESP_LOGI("ARM_CONTROL_TASK", "ARM CONTROL SUPER LOOP BEGIN (iteration %lu)", log_counter);
+        // }
         error1 = left_arm_joint_pos_error;
         error2 =  right_arm_joint_pos_error;
 
@@ -219,9 +219,9 @@ void drive_control_task(void *arg)
         set_motor_pwm(LEFT_ARM_LEDC_CHANNEL, pwm_frac1);
         set_motor_pwm(RIGHT_ARM_LEDC_CHANNEL, pwm_frac2);
 
-        if (log_counter % 40 == 0) {
-                ESP_LOGI("ARM_CONTROL_TASK", "ARM CONTROL SUPERLOOP ENDED (iteration %lu)", log_counter);
-            }
+        // if (log_counter % 40 == 0) {
+        //         ESP_LOGI("ARM_CONTROL_TASK", "ARM CONTROL SUPERLOOP ENDED (iteration %lu)", log_counter);
+        //     }
         log_counter++;
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(CONTROL_PERIOD_MS));
     }

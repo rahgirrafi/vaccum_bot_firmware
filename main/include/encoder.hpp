@@ -6,14 +6,19 @@
 #include "task.hpp"
 
 // ========= User configuration (adjust to your board) =========
-#define I2C_MASTER_NUM I2C_NUM_1
-#define I2C_MASTER_SDA_GPIO GPIO_NUM_21
-#define I2C_MASTER_SCL_GPIO GPIO_NUM_22
+// I2C bus configuration for dual AS5600 sensors
+// First AS5600 on I2C_NUM_1
+#define I2C1_SDA_GPIO GPIO_NUM_21
+#define I2C1_SCL_GPIO GPIO_NUM_22
+
+// Second AS5600 on I2C_NUM_0
+#define I2C0_SDA_GPIO GPIO_NUM_5
+#define I2C0_SCL_GPIO GPIO_NUM_4
 
 // Encoder pins (example)
-#define ENC_LEFT_1_A_GPIO 12
-#define ENC_LEFT_1_B_GPIO 14
-#define ENC_RIGHT_1_A_GPIO 13
+#define ENC_LEFT_1_A_GPIO 13
+#define ENC_LEFT_1_B_GPIO 12
+#define ENC_RIGHT_1_A_GPIO 14
 #define ENC_RIGHT_1_B_GPIO 15
 #define ENC_LEFT_2_A_GPIO 16
 #define ENC_LEFT_2_B_GPIO 17
@@ -41,10 +46,9 @@ extern SemaphoreHandle_t enc_mutex;
 
 extern rcl_subscription_t as5600_sample_pub;
 
-extern espp::As5600 *g_as5600;
-extern espp::I2c *g_i2c; 
-
-extern SemaphoreHandle_t i2c_mutex;
+// Two AS5600 encoders on separate I2C buses
+extern espp::As5600 *g_as5600_0;  // First encoder on I2C_NUM_1
+extern espp::As5600 *g_as5600_1;  // Second encoder on I2C_NUM_0
 
 void IRAM_ATTR enc_left_1_isr_handler(void *arg);
 void IRAM_ATTR enc_right_1_isr_handler(void *arg);

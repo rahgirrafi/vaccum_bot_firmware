@@ -18,8 +18,7 @@ extern "C" void app_main(void)
     ESP_LOGI(TAG, "Starting esp32 ARM+DRIVE node (As5600 updated)");
     ESP_ERROR_CHECK(uros_network_interface_initialize());
 
-    // init mutexes
-    i2c_mutex = xSemaphoreCreateMutex();
+    // init mutexes (no longer need i2c_mutex - using separate I2C buses)
     vel_mutex = xSemaphoreCreateMutex();
     arm_state_mutex = xSemaphoreCreateMutex();
     enc_mutex = xSemaphoreCreateMutex();
@@ -33,10 +32,9 @@ extern "C" void app_main(void)
     micro_ros_init_and_create_comm();
 
     // create tasks with optimized priorities for better responsiveness
-    xTaskCreate(encoder_sample_task, "enc_sample", 4096, NULL, 3, NULL);
-    xTaskCreate(drive_control_task, "drive_ctrl", 4096, NULL, 4, NULL);  // Increased priority for motor control
-    // RE-ENABLE MICRO-ROS with VERY LOW priority and frequency
-    xTaskCreate(micro_ros_spin_task, "micro_ros_spin", 8192, NULL, 1, NULL); // LOWEST priority
+    xTaskCreate(encoder_sample_task, "enc_sample", 4096, NULL, 1, NULL);
+    xTaskCreate(drive_control_task, "drive_ctrl", 4096, NULL, 3, NULL);  // Increased priority for motor control
+    xTaskCreate(micro_ros_spin_task, "micro_ros_spin", 8192, NULL, 2, NULL); // LOWEST priority
     ESP_LOGI(TAG, "All tasks launched with ultra-conservative micro-ROS settings");
 }       
 
