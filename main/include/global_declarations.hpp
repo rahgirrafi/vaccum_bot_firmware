@@ -10,6 +10,10 @@ float left_arm_joint_pos_error = 0.0f;
 float left_middle_joint_pos_error = 0.0f;
 float right_arm_joint_pos_error = 0.0f;
 float right_middle_joint_pos_error = 0.0f;
+
+// Timestamp for arm state timeout detection (in FreeRTOS ticks)
+TickType_t last_arm_state_update_time = 0;
+
 SemaphoreHandle_t vel_mutex;
 SemaphoreHandle_t arm_state_mutex;
 // Encoder counters
@@ -40,7 +44,7 @@ rcl_subscription_t cmd_vel_sub;
 
 // message storage
 geometry_msgs__msg__TwistStamped cmd_vel_msg;
-control_msgs__msg__JointTrajectoryControllerState arm_state_msg;
+custom_interfaces__msg__Float32FixedArray8 joint_state_array_msg;
 custom_interfaces__msg__Float32FixedArray8 encoder_counts_angel_rpm_msgs;
 
 // Mutex for protecting encoder message access

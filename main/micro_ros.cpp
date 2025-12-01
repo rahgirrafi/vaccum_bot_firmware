@@ -26,27 +26,30 @@ void cmd_vel_callback(const void *msgin)
 
 void arm_state_sub_callback(const void *msgin)
 {
-    const control_msgs__msg__JointTrajectoryControllerState *arr = (const control_msgs__msg__JointTrajectoryControllerState *)msgin;
-
-    if (arr->joint_names.size > 0) {
-        left_arm_joint_pos_error = arr->error.positions.data[0];
-        left_middle_joint_pos_error = arr->error.positions.data[1];
-        right_arm_joint_pos_error = arr->error.positions.data[2];
-        right_middle_joint_pos_error = arr->error.positions.data[3];
-    }
-
-    if (xSemaphoreTake(arm_state_mutex, (TickType_t)10) == pdTRUE) {
-        arm_state_msg = *arr;
-        xSemaphoreGive(arm_state_mutex);
-    }
-
+    const custom_interfaces__msg__Float32FixedArray8 *arr = (const custom_interfaces__msg__Float32FixedArray8 *)msgin;
+    
+    ESP_LOGD("ARM_STATE_CALLBACK", "🎯 CALLBACK TRIGGERED! Received joint state array");
+    
+    // Extract position errors from Float32FixedArray8
+    // Array format: [left_arm_error, left_middle_error, right_arm_error, right_middle_error, ...]
+    left_middle_joint_pos_error = arr->element[1];  // Index 1: left middle joint error
+    right_middle_joint_pos_error = arr->element[3]; // Index 3: right middle joint error
+    
+    // Update timestamp to track when we last received data
+    last_arm_state_update_time = xTaskGetTickCount();
+    
+    ESP_LOGI("ARM_STATE_CALLBACK", "Position errors - Left: %.4f, Right: %.4f", 
+             left_middle_joint_pos_error, right_middle_joint_pos_error);
 }
 
 void micro_ros_init_and_create_comm(void)
 {
     // Initialize message structures using proper micro-ROS initialization
     memset(&cmd_vel_msg, 0, sizeof(cmd_vel_msg));
-    memset(&arm_state_msg, 0, sizeof(arm_state_msg));  
+    
+    // Initialize joint_state_array_msg (Float32FixedArray8)
+    custom_interfaces__msg__Float32FixedArray8__init(&joint_state_array_msg);
+    
     // Properly initialize the custom message structure
     custom_interfaces__msg__Float32FixedArray8__init(&encoder_counts_angel_rpm_msgs);     
     
@@ -62,7 +65,7 @@ void micro_ros_init_and_create_comm(void)
 	// create init_options
 	// RCCHECK(rclc_support_init_with_options(&support, 0, NULL, &init_options, &allocator));
     //write a detailed error log if rclc_support_init_with_options fails
-    ESP_LOGI("MICRO_ROS", "About to initialize support with options...");
+    ESP_LOGD("MICRO_ROS", "About to initialize support with options...");
     rcl_ret_t rc = rclc_support_init_with_options(&support, 0, NULL, &init_options, &allocator);
     if (rc != RCL_RET_OK) {
         ESP_LOGE("MICRO_ROS", "rclc_support_init_with_options failed with code %d: %s", (int)rc, rcl_get_error_string().str);
@@ -71,7 +74,7 @@ void micro_ros_init_and_create_comm(void)
         fflush(stdout);
         vTaskDelete(NULL);
     }
-    ESP_LOGI("MICRO_ROS", "Support initialization successful!");
+    ESP_LOGD("MICRO_ROS", "Support initialization successful!");
     node = rcl_get_zero_initialized_node();
     RCCHECK(rclc_node_init_default(&node, "vaccum_base_body_node", "", &support));      
 
@@ -91,18 +94,20 @@ void micro_ros_init_and_create_comm(void)
             "/vaccum_base_controller/cmd_vel_out")
     );
 
-    RCCHECK(
-        rclc_subscription_init_default(
+    // Subscribe to joint_state_array (Float32FixedArray8)
+    RCCHECK(rclc_subscription_init_default(
             &arm_state_sub,
             &node,
-            ROSIDL_GET_MSG_TYPE_SUPPORT(control_msgs, msg, JointTrajectoryControllerState),
-            "/arm_controller/state")
+            ROSIDL_GET_MSG_TYPE_SUPPORT(custom_interfaces, msg, Float32FixedArray8),
+            "/joint_state_array")
     );
+    
+    ESP_LOGD("MICRO_ROS", "joint_state_array subscription created");
 executor = rclc_executor_get_zero_initialized_executor();
     // executor with both cmd_vel and arm_state subscriptions
     RCCHECK(rclc_executor_init(&executor, &support.context, 2, &allocator));
     RCCHECK(rclc_executor_add_subscription(&executor, &cmd_vel_sub, &cmd_vel_msg, &cmd_vel_callback, ON_NEW_DATA));
-    RCCHECK(rclc_executor_add_subscription(&executor, &arm_state_sub, &arm_state_msg, &arm_state_sub_callback, ON_NEW_DATA));
+    RCCHECK(rclc_executor_add_subscription(&executor, &arm_state_sub, &joint_state_array_msg, &arm_state_sub_callback, ON_NEW_DATA));
 
     // Print executor info
     ESP_LOGI("MICRO_ROS", "Executor initialized with %d handles", executor.max_handles);
@@ -111,7 +116,7 @@ executor = rclc_executor_get_zero_initialized_executor();
 }
 void micro_ros_spin_task(void *arg)
 {
-    ESP_LOGI("MICRO_ROS_TASK", "SPIN TASK INITIATING");
+    ESP_LOGD("MICRO_ROS_TASK", "SPIN TASK INITIATING");
 
     // ULTRA-CONSERVATIVE: 100ms delay (10 Hz) to prevent ANY network overload
     const TickType_t xDelay = pdMS_TO_TICKS(100);
@@ -153,8 +158,6 @@ void micro_ros_spin_task(void *arg)
     
                 if (ret != RCL_RET_OK) {
                     ESP_LOGW("MICRO_ROS_TASK", "Encoder publish failed: %d", ret);
-                } else {
-                    ESP_LOGI("MICRO_ROS_TASK", "Encoder data published successfully");
                 }
             }
         

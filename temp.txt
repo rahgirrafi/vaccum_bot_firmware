@@ -1,0 +1,98 @@
+
+RCCHECK(
+        rclc_subscription_init_default(
+            &arm_state_sub,
+            &node,
+            ROSIDL_GET_MSG_TYPE_SUPPORT(control_msgs, msg, JointTrajectoryControllerState),
+            "/arm_controller/state")
+    );
+    
+    
+void arm_state_sub_callback(const void *msgin)
+{
+    const control_msgs__msg__JointTrajectoryControllerState *arr = (const control_msgs__msg__JointTrajectoryControllerState *)msgin;
+
+    if (arr->joint_names.size > 0) {
+        left_middle_joint_pos_error = arr->error.positions.data[1];
+        right_middle_joint_pos_error = arr->error.positions.data[3];
+    }
+
+    if (xSemaphoreTake(arm_state_mutex, (TickType_t)10) == pdTRUE) {
+        arm_state_msg = *arr;
+        xSemaphoreGive(arm_state_mutex);
+    }
+
+}
+    RCCHECK(rclc_executor_add_subscription(&executor, &arm_state_sub, &arm_state_msg, &arm_state_sub_callback, ON_NEW_DATA));
+
+// ARM CONTROL using AS5600 sensor data
+        error1 = left_middle_joint_pos_error;
+        error2 = right_middle_joint_pos_error;
+
+        // Get current speed from AS5600 sensors (RPM)
+        float current_left_arm_speed = 0.0f;
+        float current_right_arm_speed = 0.0f;
+        
+        if (g_as5600_0) {
+            current_left_arm_speed = g_as5600_0->get_rpm();
+        }
+        if (g_as5600_1) {
+            current_right_arm_speed = g_as5600_1->get_rpm();
+        }
+
+        // Target speed is 0.11 RPM
+        const float target_arm_speed = 0.11f;
+        
+        // Calculate speed error (target - current)
+        float left_arm_speed_error = target_arm_speed - current_left_arm_speed;
+        float right_arm_speed_error = target_arm_speed - current_right_arm_speed;
+
+        // PID control for speed
+        float left_arm_derivative = (left_arm_speed_error - last_error_arm_1) / (CONTROL_PERIOD_MS / 1000.0f);
+        float right_arm_derivative = (right_arm_speed_error - last_error_arm_2) / (CONTROL_PERIOD_MS / 1000.0f);
+
+        float left_arm_output = left_arm_speed_error * ARM_KP + left_arm_derivative * ARM_KD;
+        float right_arm_output = right_arm_speed_error * ARM_KP + right_arm_derivative * ARM_KD;
+
+        last_error_arm_1 = left_arm_speed_error;
+        last_error_arm_2 = right_arm_speed_error;
+
+        // Normalize to PWM range
+        float left_arm_frac = left_arm_output / (float)ARM_MAX_PWM;
+        float right_arm_frac = right_arm_output / (float)ARM_MAX_PWM;
+
+        // Clamp to [-1.0, 1.0]
+        if (left_arm_frac > 1.0f) left_arm_frac = 1.0f;
+        if (left_arm_frac < -1.0f) left_arm_frac = -1.0f;
+        if (right_arm_frac > 1.0f) right_arm_frac = 1.0f;
+        if (right_arm_frac < -1.0f) right_arm_frac = -1.0f;
+
+        // Determine direction based on position error and apply PWM
+        // If error1 > 0: need to move forward (positive direction)
+        // If error1 < 0: need to move backward (negative direction)
+        float left_arm_direction = (error1 > 0.0f) ? 1.0f : -1.0f;
+        float right_arm_direction = (error2 > 0.0f) ? 1.0f : -1.0f;
+
+        // Only apply control if there's significant position error (deadband)
+        const float position_deadband = 0.5f; // degrees
+        if (fabsf(error1) > position_deadband) {
+            set_motor_pwm(LEFT_ARM_LEDC_CHANNEL, left_arm_direction * fabsf(left_arm_frac));
+        } else {
+            set_motor_pwm(LEFT_ARM_LEDC_CHANNEL, 0.0f);
+        }
+
+        if (fabsf(error2) > position_deadband) {
+            set_motor_pwm(RIGHT_ARM_LEDC_CHANNEL, right_arm_direction * fabsf(right_arm_frac));
+        } else {
+            set_motor_pwm(RIGHT_ARM_LEDC_CHANNEL, 0.0f);
+        }
+
+        // Logging every 40 iterations
+        if (log_counter % 40 == 0) {
+            ESP_LOGI("DRIVE_CONTROL_TASK", "Left Arm - Pos Error: %.2f°, Speed: %.2f RPM, PWM: %.2f", 
+                     error1, current_left_arm_speed, left_arm_frac);
+            ESP_LOGI("DRIVE_CONTROL_TASK", "Right Arm - Pos Error: %.2f°, Speed: %.2f RPM, PWM: %.2f", 
+                     error2, current_right_arm_speed, right_arm_frac);
+        }
+
+

@@ -23,12 +23,12 @@
 #define ARM_KP 1.2f
 #define ARM_KI 0.0f
 #define ARM_KD 0.01f
-#define ARM_MAX_PWM 255
+#define ARM_MAX_PWM 8191
 
 #define DRIVE_KP 1.2f
 #define DRIVE_KI 0.0f
 #define DRIVE_KD 0.01f
-#define DRIVE_MAX_PWM 255
+#define DRIVE_MAX_PWM 8191
 // Drive target velocities (m/s)
 extern float target_left_vel;
 extern float target_right_vel;

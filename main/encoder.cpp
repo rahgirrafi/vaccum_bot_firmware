@@ -54,7 +54,7 @@ void IRAM_ATTR enc_right_2_isr_handler(void *arg){
 void encoders_init(void)
 {
     // Make two separate I2C instances for the two AS5600 sensors
-    // I2C_NUM_1 for first AS5600 sensor
+  // I2C_NUM_1 for first AS5600 sensor
     static espp::I2c i2c1({
         .port = I2C_NUM_1,
         .sda_io_num = (gpio_num_t)21,  // Standard I2C SDA pin
@@ -100,16 +100,16 @@ void encoders_init(void)
          .update_period = std::chrono::duration<float>(encoder_update_period2),
          .log_level = espp::Logger::Verbosity::WARN});
 
-    ESP_LOGI("ENCODER", "Dual AS5600 encoders initialized on separate I2C buses");
-    ESP_LOGI("ENCODER", "  AS5600_0: I2C_NUM_1 (SDA=21, SCL=22)");
-    ESP_LOGI("ENCODER", "  AS5600_1: I2C_NUM_0 (SDA=5, SCL=4)");
+    ESP_LOGD("ENCODER", "Dual AS5600 encoders initialized on separate I2C buses");
+    ESP_LOGD("ENCODER", "  AS5600_0: I2C_NUM_1 (SDA=21, SCL=22)");
+    ESP_LOGD("ENCODER", "  AS5600_1: I2C_NUM_0 (SDA=5, SCL=4)");
 
-    ESP_LOGI("ENCODER", "Setting up GPIO encoder pins with pull-ups...");
-    ESP_LOGI("ENCODER", "GPIO pins configured:");
-    ESP_LOGI("ENCODER", "  Left1:  A=GPIO%d, B=GPIO%d", ENC_LEFT_1_A_GPIO, ENC_LEFT_1_B_GPIO);
-    ESP_LOGI("ENCODER", "  Right1: A=GPIO%d, B=GPIO%d", ENC_RIGHT_1_A_GPIO, ENC_RIGHT_1_B_GPIO);
-    ESP_LOGI("ENCODER", "  Left2:  A=GPIO%d, B=GPIO%d", ENC_LEFT_2_A_GPIO, ENC_LEFT_2_B_GPIO);
-    ESP_LOGI("ENCODER", "  Right2: A=GPIO%d, B=GPIO%d", ENC_RIGHT_2_A_GPIO, ENC_RIGHT_2_B_GPIO);
+    ESP_LOGD("ENCODER", "Setting up GPIO encoder pins with pull-ups...");
+    ESP_LOGD("ENCODER", "GPIO pins configured:");
+    ESP_LOGD("ENCODER", "  Left1:  A=GPIO%d, B=GPIO%d", ENC_LEFT_1_A_GPIO, ENC_LEFT_1_B_GPIO);
+    ESP_LOGD("ENCODER", "  Right1: A=GPIO%d, B=GPIO%d", ENC_RIGHT_1_A_GPIO, ENC_RIGHT_1_B_GPIO);
+    ESP_LOGD("ENCODER", "  Left2:  A=GPIO%d, B=GPIO%d", ENC_LEFT_2_A_GPIO, ENC_LEFT_2_B_GPIO);
+    ESP_LOGD("ENCODER", "  Right2: A=GPIO%d, B=GPIO%d", ENC_RIGHT_2_A_GPIO, ENC_RIGHT_2_B_GPIO);
 
     // Check for potential GPIO conflicts  
     if (ENC_LEFT_1_B_GPIO == 12) {
@@ -152,17 +152,17 @@ void encoders_init(void)
     gpio_set_direction((gpio_num_t)ENC_RIGHT_2_B_GPIO, GPIO_MODE_INPUT);
     gpio_set_pull_mode((gpio_num_t)ENC_RIGHT_2_B_GPIO, GPIO_PULLUP_ONLY);
 
-    ESP_LOGI("ENCODER", "GPIO directions and pull-ups configured");
+    ESP_LOGD("ENCODER", "GPIO directions and pull-ups configured");
 
     // Install ISR service with error checking
     ret = gpio_install_isr_service(0);
     if (ret == ESP_ERR_INVALID_STATE) {
-        ESP_LOGI("ENCODER", "ISR service already installed");
+        ESP_LOGD("ENCODER", "ISR service already installed");
     } else if (ret != ESP_OK) {
         ESP_LOGE("ENCODER", "Failed to install ISR service: %s", esp_err_to_name(ret));
         return;
     } else {
-        ESP_LOGI("ENCODER", "ISR service installed successfully");
+        ESP_LOGD("ENCODER", "ISR service installed successfully");
     }
 
     // Add interrupt handlers with error checking
@@ -170,44 +170,44 @@ void encoders_init(void)
     if (ret != ESP_OK) {
         ESP_LOGE("ENCODER", "Failed to add ISR for ENC_LEFT_1_A (GPIO%d): %s", ENC_LEFT_1_A_GPIO, esp_err_to_name(ret));
     } else {
-        ESP_LOGI("ENCODER", "✓ ENC_LEFT_1_A ISR added to GPIO%d", ENC_LEFT_1_A_GPIO);
+        ESP_LOGD("ENCODER", "✓ ENC_LEFT_1_A ISR added to GPIO%d", ENC_LEFT_1_A_GPIO);
     }
     
     ret = gpio_isr_handler_add((gpio_num_t)ENC_RIGHT_1_A_GPIO, enc_right_1_isr_handler, NULL);
     if (ret != ESP_OK) {
         ESP_LOGE("ENCODER", "Failed to add ISR for ENC_RIGHT_1_A (GPIO%d): %s", ENC_RIGHT_1_A_GPIO, esp_err_to_name(ret));
     } else {
-        ESP_LOGI("ENCODER", "✓ ENC_RIGHT_1_A ISR added to GPIO%d", ENC_RIGHT_1_A_GPIO);
+        ESP_LOGD("ENCODER", "✓ ENC_RIGHT_1_A ISR added to GPIO%d", ENC_RIGHT_1_A_GPIO);
     }
     
     ret = gpio_isr_handler_add((gpio_num_t)ENC_LEFT_2_A_GPIO, enc_left_2_isr_handler, NULL);
     if (ret != ESP_OK) {
         ESP_LOGE("ENCODER", "Failed to add ISR for ENC_LEFT_2_A (GPIO%d): %s", ENC_LEFT_2_A_GPIO, esp_err_to_name(ret));
     } else {
-        ESP_LOGI("ENCODER", "✓ ENC_LEFT_2_A ISR added to GPIO%d", ENC_LEFT_2_A_GPIO);
+        ESP_LOGD("ENCODER", "✓ ENC_LEFT_2_A ISR added to GPIO%d", ENC_LEFT_2_A_GPIO);
     }
     
     ret = gpio_isr_handler_add((gpio_num_t)ENC_RIGHT_2_A_GPIO, enc_right_2_isr_handler, NULL);
     if (ret != ESP_OK) {
         ESP_LOGE("ENCODER", "Failed to add ISR for ENC_RIGHT_2_A (GPIO%d): %s", ENC_RIGHT_2_A_GPIO, esp_err_to_name(ret));
     } else {
-        ESP_LOGI("ENCODER", "✓ ENC_RIGHT_2_A ISR added to GPIO%d", ENC_RIGHT_2_A_GPIO);
+        ESP_LOGD("ENCODER", "✓ ENC_RIGHT_2_A ISR added to GPIO%d", ENC_RIGHT_2_A_GPIO);
     }
     
     // Test initial GPIO states
-    ESP_LOGI("ENCODER", "Initial GPIO States:");
-    ESP_LOGI("ENCODER", "  L1A=%d L1B=%d R1A=%d R1B=%d", 
+    ESP_LOGD("ENCODER", "Initial GPIO States:");
+    ESP_LOGD("ENCODER", "  L1A=%d L1B=%d R1A=%d R1B=%d", 
             gpio_get_level((gpio_num_t)ENC_LEFT_1_A_GPIO),
             gpio_get_level((gpio_num_t)ENC_LEFT_1_B_GPIO),
             gpio_get_level((gpio_num_t)ENC_RIGHT_1_A_GPIO),
             gpio_get_level((gpio_num_t)ENC_RIGHT_1_B_GPIO));
-    ESP_LOGI("ENCODER", "  L2A=%d L2B=%d R2A=%d R2B=%d",
+    ESP_LOGD("ENCODER", "  L2A=%d L2B=%d R2A=%d R2B=%d",
             gpio_get_level((gpio_num_t)ENC_LEFT_2_A_GPIO),
             gpio_get_level((gpio_num_t)ENC_LEFT_2_B_GPIO),
             gpio_get_level((gpio_num_t)ENC_RIGHT_2_A_GPIO),
             gpio_get_level((gpio_num_t)ENC_RIGHT_2_B_GPIO));
     
-    ESP_LOGI("ENCODER", "All encoder interrupts configured successfully");
+    ESP_LOGD("ENCODER", "All encoder interrupts configured successfully");
 }
 
 
@@ -222,7 +222,6 @@ void encoder_sample_task(void *arg)
     int64_t last_left2 = 0, last_right2 = 0;
     int log_counter = 0;  // Add missing log counter variable
     TickType_t last_wake = xTaskGetTickCount();
-    // ESP_LOGI("ENCODER_TASK", "ENCODER SAMPLE TASK SUPER LOOP INITIATED");
     
     while (1) {
         // if(log_counter % 40 == 0) {
@@ -263,10 +262,7 @@ void encoder_sample_task(void *arg)
             encoder_counts_angel_rpm_msgs.element[1] = right_rps1;
             encoder_counts_angel_rpm_msgs.element[2] = left_rps2;
             encoder_counts_angel_rpm_msgs.element[3] = right_rps2;
-            // encoder_counts_angel_rpm_msgs.element[0] = 0;
-            // encoder_counts_angel_rpm_msgs.element[1] = 0;
-            // encoder_counts_angel_rpm_msgs.element[2] = 0;
-            // encoder_counts_angel_rpm_msgs.element[3] = 0;
+   
             
             xSemaphoreGive(encoder_msg_mutex);
         } else {
@@ -307,8 +303,6 @@ void encoder_sample_task(void *arg)
             // This eliminates the race condition between tasks accessing micro-ROS network stack
             
             xSemaphoreGive(encoder_msg_mutex);
-            
-            ESP_LOGI("ENCODER_TASK", "Dual encoder data updated (publishing handled by micro_ros_spin_task)");
         } else {
             ESP_LOGW("ENCODER_TASK", "Failed to take encoder_msg_mutex for updating data");
         }

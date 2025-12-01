@@ -30,6 +30,9 @@ extern float left_middle_joint_pos_error;
 extern float right_arm_joint_pos_error;
 extern float right_middle_joint_pos_error;
 
+// Timestamp for arm state timeout detection (in FreeRTOS ticks)
+extern TickType_t last_arm_state_update_time;
+
 
 extern rcl_node_t node;
 extern rclc_executor_t executor;
@@ -51,7 +54,7 @@ extern rcl_subscription_t cmd_vel_sub;
 
 // message storage
 extern geometry_msgs__msg__TwistStamped cmd_vel_msg;
-extern control_msgs__msg__JointTrajectoryControllerState arm_state_msg;
+extern custom_interfaces__msg__Float32FixedArray8 joint_state_array_msg;
 extern custom_interfaces__msg__Float32FixedArray8 encoder_counts_angel_rpm_msgs;
 // extern custom_interfaces__msg__Float32FixedArray as5600_msgs;
 
