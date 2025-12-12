@@ -125,33 +125,15 @@ void micro_ros_spin_task(void *arg)
     while (1) {
         // Reduced log frequency - only log every 4 iterations (once per 2 seconds at 2 Hz)
         static uint32_t log_counter = 0;
-        // if (log_counter % 4 == 0) {
-        //     ESP_LOGI("MICRO_ROS_TASK", "SPIN TASK SUPERLOOP BEGIN (iteration %lu)", log_counter);
-            
-        //     // Monitor heap usage to debug corruption
-        //     size_t free_heap = esp_get_free_heap_size();
-        //     size_t min_free = esp_get_minimum_free_heap_size();
-        //     ESP_LOGI("MICRO_ROS_TASK", "Heap: Free=%zu, Min=%zu", free_heap, min_free);
-        // }
-        
-        // ULTRA-CONSERVATIVE: Very long timeout to minimize network operations
+     
         rcl_ret_t rc = rclc_executor_spin_some(&executor, RCL_MS_TO_NS(200));
         if (rc != RCL_RET_OK) {
-            // Reduce warning frequency to avoid spam
             if (log_counter % 10 == 0) {
                 ESP_LOGW("MICRO_ROS_TASK", "Executor spin failed: %d - Agent may not be available", (int)rc);
             }
-            // LONGER delay on errors to prevent rapid network retry loops
             vTaskDelay(pdMS_TO_TICKS(200));
-        } // else {
-        //     if (log_counter % 4 == 0) {
-        //         ESP_LOGI("MICRO_ROS_TASK", "SPIN TASK SUPERLOOP ENDED");
-        //     }
-        // }
-        
-        // SOLUTION: Handle encoder publishing here to avoid race conditions
-        // Only publish every few iterations to keep rate low
-        // Every ~5 seconds (10 * 500ms)
+        }
+            
             if (xSemaphoreTake(encoder_msg_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
                 rcl_ret_t ret = rcl_publish(&encoder_counts_pub, &encoder_counts_angel_rpm_msgs, NULL);
                 xSemaphoreGive(encoder_msg_mutex);

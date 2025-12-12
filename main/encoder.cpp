@@ -257,7 +257,7 @@ void encoder_sample_task(void *arg)
 
 
         // Protect encoder message with mutex
-        if (xSemaphoreTake(encoder_msg_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+        if (xSemaphoreTake(encoder_msg_mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
             encoder_counts_angel_rpm_msgs.element[0] = left_rps1;
             encoder_counts_angel_rpm_msgs.element[1] = right_rps1;
             encoder_counts_angel_rpm_msgs.element[2] = left_rps2;
@@ -313,7 +313,7 @@ void encoder_sample_task(void *arg)
                         left1, right1, left2, right2);
                 ESP_LOGI("ENCODER", "ISR Counters - L1:%lu R1:%lu | L2:%lu R2:%lu", 
                         isr_count_left1, isr_count_right1, isr_count_left2, isr_count_right2);
-                ESP_LOGI("ENCODER", "AS5600 Sensors - Sensor0: %.2f° %.2fRPM | Sensor1: %.2f° %.2fRPM", 
+                ESP_LOGI("ENCODER", "AS5600 Sensors - Sensor0: %.4f° %.2fRPM | Sensor1: %.4f° %.2fRPM", 
                         radians_0, rpm_0, radians_1, rpm_1);
                         
                 // Show GPIO pin states for debugging

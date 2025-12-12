@@ -53,36 +53,36 @@ void motors_init(){
         return;
     }
 
-    // Left Base Body 1
-    ledc_channel.channel = BASE_LEFT_LEDC_CHANNEL_1;
-    ledc_channel.gpio_num = BASE_LEFT_PWM_GPIO_1;
+    // Left Base Body Rear
+    ledc_channel.channel = BASE_REAR_LEFT_LEDC_CHANNEL;
+    ledc_channel.gpio_num = BASE_REAR_LEFT_PWM_GPIO;
     err = ledc_channel_config(&ledc_channel);
     if (err != ESP_OK) {
         ESP_LOGE("MOTOR", "Failed to configure left base 1 channel: %s", esp_err_to_name(err));
         return;
     }
 
-    // Right Base Body 1
-    ledc_channel.channel = BASE_RIGHT_LEDC_CHANNEL_1;
-    ledc_channel.gpio_num = BASE_RIGHT_PWM_GPIO_1;
+    // Right Base Body Rear
+    ledc_channel.channel = BASE_REAR_RIGHT_LEDC_CHANNEL;
+    ledc_channel.gpio_num = BASE_REAR_RIGHT_PWM_GPIO;
     err = ledc_channel_config(&ledc_channel);
     if (err != ESP_OK) {
         ESP_LOGE("MOTOR", "Failed to configure right base 1 channel: %s", esp_err_to_name(err));
         return;
     }
 
-    // Left Base Body 2
-    ledc_channel.channel = BASE_LEFT_LEDC_CHANNEL_2;
-    ledc_channel.gpio_num = BASE_LEFT_PWM_GPIO_2;
+    // Left Base Body Front
+    ledc_channel.channel = BASE_FRONT_LEFT_LEDC_CHANNEL;
+    ledc_channel.gpio_num = BASE_FRONT_LEFT_PWM_GPIO;
     err = ledc_channel_config(&ledc_channel);
     if (err != ESP_OK) {
         ESP_LOGE("MOTOR", "Failed to configure left base 2 channel: %s", esp_err_to_name(err));
         return;
     }
 
-    // Right Base Body 2
-    ledc_channel.channel = BASE_RIGHT_LEDC_CHANNEL_2;
-    ledc_channel.gpio_num = BASE_RIGHT_PWM_GPIO_2;
+    // Right Base Body Front
+    ledc_channel.channel = BASE_FRONT_RIGHT_LEDC_CHANNEL_2;
+    ledc_channel.gpio_num = BASE_FRONT_RIGHT_PWM_GPIO_2;
     err = ledc_channel_config(&ledc_channel);
     if (err != ESP_OK) {
         ESP_LOGE("MOTOR", "Failed to configure right base 2 channel: %s", esp_err_to_name(err));
@@ -182,18 +182,17 @@ void drive_control_task(void *arg)
         if (right_frac2 > 1.0f) right_frac2 = 1.0f;
         if (right_frac2 < -1.0f) right_frac2 = -1.0f;
 
-        set_motor_pwm(BASE_LEFT_LEDC_CHANNEL_1,  left_frac1);
-        set_motor_pwm(BASE_RIGHT_LEDC_CHANNEL_1 , right_frac1);
-        set_motor_pwm(BASE_LEFT_LEDC_CHANNEL_2,  left_frac2);
-        set_motor_pwm(BASE_RIGHT_LEDC_CHANNEL_2,  right_frac2);
+        set_motor_pwm(BASE_REAR_LEFT_LEDC_CHANNEL,  left_frac1);
+        set_motor_pwm(BASE_REAR_RIGHT_LEDC_CHANNEL , right_frac1);
+        set_motor_pwm(BASE_FRONT_LEFT_LEDC_CHANNEL,  left_frac2);
+        set_motor_pwm(BASE_FRONT_RIGHT_LEDC_CHANNEL_2,  right_frac2);
        
         // ARM CONTROL using AS5600 sensor data
         // Check if arm state data is stale (timeout after 500ms)
-        TickType_t current_time = xTaskGetTickCount();
+         TickType_t current_time = xTaskGetTickCount();
         const TickType_t timeout_ticks = pdMS_TO_TICKS(500); // 500ms timeout
         bool arm_state_timeout = (last_arm_state_update_time == 0) || 
                                  ((current_time - last_arm_state_update_time) > timeout_ticks);
-        
         if (arm_state_timeout) {
             // Stop arm motors if no updates received within timeout period
             set_motor_pwm(LEFT_ARM_LEDC_CHANNEL, 0.0f);
@@ -204,7 +203,7 @@ void drive_control_task(void *arg)
             log_counter++;
             vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(CONTROL_PERIOD_MS));
             continue;
-        }
+        }                   
         
         error1 = left_middle_joint_pos_error;
         error2 = right_middle_joint_pos_error;
@@ -292,5 +291,10 @@ void drive_control_task(void *arg)
       
         log_counter++;
         vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(CONTROL_PERIOD_MS));
+        
+       
+        
+        
     }
+    
 }

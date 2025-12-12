@@ -32,8 +32,8 @@ extern "C" void app_main(void)
     micro_ros_init_and_create_comm();
 
     // create tasks with optimized priorities for better responsiveness
-    xTaskCreate(encoder_sample_task, "enc_sample", 4096, NULL, 1, NULL);
-    xTaskCreate(drive_control_task, "drive_ctrl", 4096, NULL, 3, NULL);  // Increased priority for motor control
+    xTaskCreate(encoder_sample_task, "enc_sample", 4096, NULL, 3, NULL);
+    xTaskCreate(drive_control_task, "drive_ctrl", 4096, NULL, 1, NULL);  
     xTaskCreate(micro_ros_spin_task, "micro_ros_spin", 8192, NULL, 2, NULL); // LOWEST priority
     ESP_LOGD(TAG, "All tasks launched with ultra-conservative micro-ROS settings");
 }       
