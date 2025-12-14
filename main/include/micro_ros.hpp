@@ -21,6 +21,7 @@
 #include <std_msgs/msg/bool.h>
 #include <std_msgs/msg/int64_multi_array.h>
 #include <custom_interfaces/msg/float32_fixed_array8.h>
+#include <custom_interfaces/msg/float32_fixed_array4.h>
 #include <geometry_msgs/msg/twist.h>
 #include <geometry_msgs/msg/twist_stamped.h>
 #include <control_msgs/msg/joint_trajectory_controller_state.h>
@@ -54,7 +55,7 @@ extern rcl_subscription_t cmd_vel_sub;
 
 // message storage
 extern geometry_msgs__msg__TwistStamped cmd_vel_msg;
-extern custom_interfaces__msg__Float32FixedArray8 joint_state_array_msg;
+extern custom_interfaces__msg__Float32FixedArray4 joint_state_array_msg;
 extern custom_interfaces__msg__Float32FixedArray8 encoder_counts_angel_rpm_msgs;
 // extern custom_interfaces__msg__Float32FixedArray as5600_msgs;
 

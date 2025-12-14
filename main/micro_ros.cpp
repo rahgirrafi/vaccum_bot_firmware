@@ -15,7 +15,6 @@ void cmd_vel_callback(const void *msgin)
     float v_left = linear - (angular * WHEEL_SEPARATION * 0.5f);
     float v_right = linear + (angular * WHEEL_SEPARATION * 0.5f);
     if(v_left > 0){
-
     }
     if (xSemaphoreTake(vel_mutex, (TickType_t)10) == pdTRUE) {
         target_left_vel = v_left;
@@ -48,7 +47,7 @@ void micro_ros_init_and_create_comm(void)
     memset(&cmd_vel_msg, 0, sizeof(cmd_vel_msg));
     
     // Initialize joint_state_array_msg (Float32FixedArray8)
-    custom_interfaces__msg__Float32FixedArray8__init(&joint_state_array_msg);
+    custom_interfaces__msg__Float32FixedArray4__init(&joint_state_array_msg);
     
     // Properly initialize the custom message structure
     custom_interfaces__msg__Float32FixedArray8__init(&encoder_counts_angel_rpm_msgs);     
@@ -98,7 +97,7 @@ void micro_ros_init_and_create_comm(void)
     RCCHECK(rclc_subscription_init_default(
             &arm_state_sub,
             &node,
-            ROSIDL_GET_MSG_TYPE_SUPPORT(custom_interfaces, msg, Float32FixedArray8),
+            ROSIDL_GET_MSG_TYPE_SUPPORT(custom_interfaces, msg, Float32FixedArray4),
             "/joint_state_array")
     );
     
